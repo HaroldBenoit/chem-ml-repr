@@ -1,8 +1,8 @@
+
+#Hiding .vscode settings
+.vscode/
 # Hiding data folders
-
-data/raw/*
-data/clean/*
-
+data/*
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
