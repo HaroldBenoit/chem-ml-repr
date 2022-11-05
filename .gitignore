@@ -4,6 +4,10 @@
 # Hiding data folders
 data/*
 
+# csv files
+
+*.csv
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
