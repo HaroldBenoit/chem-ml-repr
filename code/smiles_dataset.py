@@ -32,6 +32,9 @@ class SmilesDataset(InMemoryDataset):
         self.add_hydrogen = add_hydrogen
         self.seed = seed
         self.raw_file_names = filename
+        if add_hydrogen:
+            root = f"{root}_hydrogen"
+        
         super().__init__(root, transform, pre_transform, pre_filter)
 
         self.data, self.slices = torch.load(self.processed_paths[0])
@@ -40,7 +43,7 @@ class SmilesDataset(InMemoryDataset):
     def raw_file_names(self) -> List[str]:
         try:
             import rdkit
-            return [self.__raw_file_names]  # need to hardcode it because property is called in super.init() (bad code tbh)
+            return [self.__raw_file_names] 
         except ImportError:
             print("rdkit needs to be installed!")
             return []
@@ -140,6 +143,7 @@ class SmilesDataset(InMemoryDataset):
             first_node_index = []
             second_node_index = []
             edge_type=[]
+            distances=[]
             
             for i in range(N):
                 for j in range(N):
