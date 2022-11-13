@@ -1,9 +1,6 @@
 from typing import Callable, List, Optional, Tuple
 import pathlib
-import pdb
 
-
-import rdkit
 from rdkit import Chem
 from rdkit.Chem import AllChem
 from rdkit.Chem import rdDistGeom
