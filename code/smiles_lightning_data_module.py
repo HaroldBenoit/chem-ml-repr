@@ -6,6 +6,7 @@ import math
 
 
 class SmilesDataModule(pl.LightningDataModule):
+    """ Pytorch Ligthning Data Module wrapper around Smiles Dataset to ensure reproducible and easy splitting of the dataset"""
     
     def __init__(self, dataset:SmilesDataset, seed, train_frac=0.6, valid_frac=0.1, test_frac=0.3, batch_size=32, test_dataset:SmilesDataset = None) -> None:
         super().__init__()

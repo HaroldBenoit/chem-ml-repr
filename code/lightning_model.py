@@ -18,7 +18,10 @@ import torch.nn.functional as F
 
 
 class LightningClassicGNN(pl.LightningModule):
-    #! following https://graphneural.network/models/#generalgnn implementation
+    """ GNN model wrapped in a Pytorch Lightning Module 
+        #! following https://graphneural.network/models/#generalgnn implementation
+
+    """
     
     def __init__(self, classification = True, num_hidden_features=256, dropout_p=0.0, learning_rate=0.01, **kwargs: Any) -> None:
         super(LightningClassicGNN,self).__init__()

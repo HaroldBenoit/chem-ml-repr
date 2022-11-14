@@ -21,11 +21,34 @@ from torch_geometric.data import (
 
 
 class SmilesDataset(InMemoryDataset):
+    """ Dataset class to go from (smiles,target) data format to (graph data, target) data format,
+    Implemented as a Pytorch Geometric InMemoryDataset for ease of use"""
     
     
     def __init__(self, root: str, filename:str, add_hydrogen=False, seed=0x00ffd, transform: Optional[Callable] = None,
                  pre_transform: Optional[Callable] = None,
                  pre_filter: Optional[Callable] = None):
+        """
+
+        Args:
+            root (str): root directory where the raw data can be found and where the processed data will be stored
+            filename (str): csv filename of the dataset
+            add_hydrogen (bool, optional): If True, hydrogen atoms will be part of the description of the molecules. Defaults to False.
+            seed (hexadecimal, optional): seed for randomness, relevant for 3D coordinates generation. Defaults to 0x00ffd.
+            
+            transform (callable, optional): A function/transform that takes in an
+                :obj:`torch_geometric.data.Data` object and returns a transformed
+                version. The data object will be transformed before every access.
+                (default: :obj:`None`)
+            pre_transform (callable, optional): A function/transform that takes in
+                an :obj:`torch_geometric.data.Data` object and returns a
+                transformed version. The data object will be transformed before
+                being saved to disk. (default: :obj:`None`)
+            pre_filter (callable, optional): A function that takes in an
+                :obj:`torch_geometric.data.Data` object and returns a boolean
+                value, indicating whether the data object should be included in the
+                final dataset. (default: :obj:`None`)
+        """
         self.add_hydrogen = add_hydrogen
         self.seed = seed
         self.raw_file_names = filename
@@ -99,20 +122,31 @@ class SmilesDataset(InMemoryDataset):
 
 
     def process(self):
+        """ Full processing procedure for the raw csv dataset. 
         
+            1. Read the csv file,excepts a single columns of smiles string, the rest is considered as a target
+            For each row:
+                2. ETKDG seeded method 3D coordinate generation
+                3. QM9 featurization of nodes
+                4. Create the complete graph (no self-loops) with covalent bond types as edge attributes
+                
+            5. Bundle everything into the Data (graph) type
+        """
+        
+        #1. Read the csv file,excepts a single columns of smiles string, the rest is considered as a target
         df = pd.read_csv(self.raw_paths[0],index_col=0, encoding="utf-8")
-
         target = torch.tensor(df.values)
+
+
 
         data_list = []
         for idx, smile in enumerate(tqdm(df.index)):
 
-            ## ETKDG seeded method 3D coordinate generation
+            ## 2. ETKDG seeded method 3D coordinate generation
             mol, pos = self.get_molecule_and_coordinates(smile)
 
 
-            ## QM9 featurization of nodes
-
+            # 3. QM9 featurization of nodes
             N = mol.GetNumAtoms()
             atomic_number = []
             aromatic = []
@@ -130,7 +164,11 @@ class SmilesDataset(InMemoryDataset):
             z = torch.tensor(atomic_number, dtype=torch.long)
             
             
-            bonds = {BT.SINGLE: 0, BT.DOUBLE: 1, BT.TRIPLE: 2, BT.AROMATIC: 3}
+            
+            # 4. Create the complete graph (no self-loops) with covalent bond types as edge attributes
+            
+            # must start at 1, as we will be using a defaultdict with default value of 0 (indicating no covalent bond)
+            bonds = {BT.SINGLE: 1, BT.DOUBLE: 2, BT.TRIPLE: 3, BT.AROMATIC: 4}
             # getting all covalent bond types
             bonds_dict = {(bond.GetBeginAtomIdx(),bond.GetEndAtomIdx()):bonds[bond.GetBondType()] for bond in mol.GetBonds()}
             # returns 0 for all pairs of atoms with no covalent bond 
@@ -157,12 +195,13 @@ class SmilesDataset(InMemoryDataset):
 
             #x1 = F.one_hot(torch.tensor(type_idx), num_classes=len(types))
             
+            # 5. Bundling everything into the Data (graph) type
+            
             x = torch.tensor([atomic_number, aromatic, sp, sp2, sp3],
                               dtype=torch.float).t().contiguous()
             #x = torch.cat([x1.to(torch.float), x2], dim=-1)
 
             y = target[idx].unsqueeze(0)
-
             data = Data(x=x, z=z, pos=pos, edge_index=edge_index,
                         edge_attr=edge_attr, y=y, name=smile, idx=idx)
 
