@@ -10,9 +10,10 @@ from torch_geometric.data import (
 
 
 
-def QM9Dataset(root: str, add_hydrogen=False, seed=0x00ffd, transform: Optional[Callable] = None,
-                 pre_transform: Optional[Callable] = None,
-                 pre_filter: Optional[Callable] = None) -> SmilesDataset:
+def QM9Dataset(root: str, add_hydrogen=False, seed=0x00ffd, begin_index:int=0, end_index:int = -1,
+                transform: Optional[Callable] = None,
+                pre_transform: Optional[Callable] = None,
+                pre_filter: Optional[Callable] = None) -> SmilesDataset:
     
     """The QM9 dataset from the `"MoleculeNet: A Benchmark for Molecular
     Machine Learning" <https://arxiv.org/abs/1703.00564>`_ paper, consisting of
@@ -81,7 +82,7 @@ def QM9Dataset(root: str, add_hydrogen=False, seed=0x00ffd, transform: Optional[
         df.set_index("smiles", drop=True, inplace=True)
         df.to_csv(complete_path)            
         
-    return SmilesDataset(root=root, filename=filename, add_hydrogen=add_hydrogen, seed=seed, 
+    return SmilesDataset(root=root, filename=filename, add_hydrogen=add_hydrogen, seed=seed, begin_index=begin_index, end_index=end_index,
                          transform=transform, pre_transform=pre_transform, pre_filter=pre_filter)
             
             

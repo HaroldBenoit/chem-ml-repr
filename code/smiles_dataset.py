@@ -25,7 +25,7 @@ class SmilesDataset(InMemoryDataset):
     Implemented as a Pytorch Geometric InMemoryDataset for ease of use"""
     
     
-    def __init__(self, root: str, filename:str, add_hydrogen=False, seed=0x00ffd, transform: Optional[Callable] = None,
+    def __init__(self, root: str, filename:str, add_hydrogen=False, seed=0x00ffd, begin_index:int=0, end_index:int = -1, transform: Optional[Callable] = None,
                  pre_transform: Optional[Callable] = None,
                  pre_filter: Optional[Callable] = None):
         """
@@ -35,6 +35,8 @@ class SmilesDataset(InMemoryDataset):
             filename (str): csv filename of the dataset
             add_hydrogen (bool, optional): If True, hydrogen atoms will be part of the description of the molecules. Defaults to False.
             seed (hexadecimal, optional): seed for randomness, relevant for 3D coordinates generation. Defaults to 0x00ffd.
+            begin_index (int, optional): beginning index of the processing in the raw data. Defaults to 0 (beginning of the data)
+            end_index (int, optional): end index of the processing in the raw data. Defaults to -1 (end of the data)
             
             transform (callable, optional): A function/transform that takes in an
                 :obj:`torch_geometric.data.Data` object and returns a transformed
@@ -50,6 +52,8 @@ class SmilesDataset(InMemoryDataset):
                 final dataset. (default: :obj:`None`)
         """
         self.add_hydrogen = add_hydrogen
+        self.begin_index = begin_index
+        self.end_index = end_index
         self.seed = seed
         self.raw_file_names = filename
         if add_hydrogen:
@@ -105,7 +109,11 @@ class SmilesDataset(InMemoryDataset):
         ps = rdDistGeom.ETKDGv3()
         ps.randomSeed = self.seed
         #ps.coordMap = coordMap = {0:[0,0,0]}
-        AllChem.EmbedMolecule(m,ps)
+        err = AllChem.EmbedMolecule(m,ps)
+        
+        # conformer generation failed for some reason (molecule too big is an option)
+        if err !=0:
+            return None, None
 
 
         conf = m.GetConformer()
@@ -114,7 +122,7 @@ class SmilesDataset(InMemoryDataset):
 
         ## if we dont want hydrogen, we need to rebuild a molecule without explicit hydrogens
         if not(self.add_hydrogen):
-            m = Chem.MolFromSmiles(smile)
+            m = Chem.RemoveHs(m)
             
         return m, pos    
 
@@ -136,15 +144,28 @@ class SmilesDataset(InMemoryDataset):
         #1. Read the csv file,excepts a single columns of smiles string, the rest is considered as a target
         df = pd.read_csv(self.raw_paths[0],index_col=0, encoding="utf-8")
         target = torch.tensor(df.values)
+        
+        if self.begin_index < 0 or self.begin_index >= len(df):
+            raise ValueError(f"begin index value: {self.begin_index} is out of bounds [0, {len(df) -1}]")
+
+        if abs(self.end_index) >= len(df):
+            raise ValueError(f"end index value: {self.end_index} is out of bounds [-{len(df) -1}], {len(df) -1}]")
+        ## counting the number of failed 3D generations
+        failed_counter = 0
 
 
 
         data_list = []
-        for idx, smile in enumerate(tqdm(df.index)):
+        # iterating over the given range
+        index = df.index[self.begin_index: self.end_index]
+        for idx, smile in enumerate(tqdm(index)):
 
             ## 2. ETKDG seeded method 3D coordinate generation
             mol, pos = self.get_molecule_and_coordinates(smile)
-
+            
+            if mol is None:
+                failed_counter += 1
+                continue
 
             # 3. QM9 featurization of nodes
             N = mol.GetNumAtoms()
@@ -190,7 +211,7 @@ class SmilesDataset(InMemoryDataset):
     
             edge_index = torch.tensor([first_node_index, second_node_index], dtype=torch.long)
             edge_type = torch.tensor(edge_type, dtype=torch.long)
-            edge_attr = F.one_hot(edge_type, num_classes=len(bonds)).to(torch.float)
+            edge_attr = F.one_hot(edge_type, num_classes=len(bonds)+1).to(torch.float)
             
 
             #x1 = F.one_hot(torch.tensor(type_idx), num_classes=len(types))
@@ -211,6 +232,9 @@ class SmilesDataset(InMemoryDataset):
                 data = self.pre_transform(data)
 
             data_list.append(data)
+            
+            
+        print(f"NUM MOLECULES SKIPPED {failed_counter}, {failed_counter/len(index):.2f}% of the data")
             
                    
         torch.save(self.collate(data_list), self.processed_paths[0])
