@@ -143,6 +143,7 @@ class SmilesDataset(InMemoryDataset):
         
         #1. Read the csv file,excepts a single columns of smiles string, the rest is considered as a target
         df = pd.read_csv(self.raw_paths[0],index_col=0, encoding="utf-8")
+        print(df.columns)
         target = torch.tensor(df.values)
         
         if self.begin_index < 0 or self.begin_index >= len(df):
@@ -157,8 +158,10 @@ class SmilesDataset(InMemoryDataset):
 
         data_list = []
         # iterating over the given range
-        index = df.index[self.begin_index: self.end_index]
-        for idx, smile in enumerate(tqdm(index)):
+        smiles = df.index[self.begin_index: self.end_index]
+        indexes = range(self.begin_index, self.end_index)
+        
+        for idx, smile in tqdm(zip(indexes,smiles)):
 
             ## 2. ETKDG seeded method 3D coordinate generation
             mol, pos = self.get_molecule_and_coordinates(smile)
@@ -218,8 +221,7 @@ class SmilesDataset(InMemoryDataset):
             
             # 5. Bundling everything into the Data (graph) type
             
-            x = torch.tensor([atomic_number, aromatic, sp, sp2, sp3],
-                              dtype=torch.float).t().contiguous()
+            x = torch.tensor([atomic_number, aromatic, sp, sp2, sp3],dtype=torch.float).t().contiguous()
             #x = torch.cat([x1.to(torch.float), x2], dim=-1)
 
             y = target[idx].unsqueeze(0)
@@ -234,7 +236,7 @@ class SmilesDataset(InMemoryDataset):
             data_list.append(data)
             
             
-        print(f"NUM MOLECULES SKIPPED {failed_counter}, {failed_counter/len(index):.2f}% of the data")
+        print(f"NUM MOLECULES SKIPPED {failed_counter}, {failed_counter/len(smiles):.2f}% of the data")
             
                    
         torch.save(self.collate(data_list), self.processed_paths[0])
