@@ -8,6 +8,22 @@ from torch_geometric.data import (
     extract_zip,
 )
 
+import argparse
+
+
+def main():
+    parser = argparse.ArgumentParser(prog="DatasetProcessing", description="Given the dataset name and root path, processes the dataset according to our method")
+    parser.add_argument('--root')
+    parser.add_argument('--hydrogen', action='store_true')
+    parser.add_argument('--seed', default=0x00ffd, type=int)
+    parser.add_argument('--begin', default=0, type=int)
+    parser.add_argument('--end', default=-1, type=int)
+    
+    args = parser.parse_args()
+    
+    QM9Dataset(root=args.root, add_hydrogen=args.hydrogen, seed=args.seed, begin_index=args.begin, end_index=args.end)
+    
+
 
 
 def QM9Dataset(root: str, add_hydrogen=False, seed=0x00ffd, begin_index:int=0, end_index:int = -1,
@@ -85,4 +101,7 @@ def QM9Dataset(root: str, add_hydrogen=False, seed=0x00ffd, begin_index:int=0, e
     return SmilesDataset(root=root, filename=filename, add_hydrogen=add_hydrogen, seed=seed, begin_index=begin_index, end_index=end_index,
                          transform=transform, pre_transform=pre_transform, pre_filter=pre_filter)
             
-            
+
+
+if __name__=="__main__":
+    main()
