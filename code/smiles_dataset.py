@@ -143,7 +143,6 @@ class SmilesDataset(InMemoryDataset):
         
         #1. Read the csv file,excepts a single columns of smiles string, the rest is considered as a target
         df = pd.read_csv(self.raw_paths[0],index_col=0, encoding="utf-8")
-        print(df.columns)
         target = torch.tensor(df.values)
         
         if self.begin_index < 0 or self.begin_index >= len(df):
@@ -151,6 +150,11 @@ class SmilesDataset(InMemoryDataset):
 
         if abs(self.end_index) >= len(df):
             raise ValueError(f"end index value: {self.end_index} is out of bounds [-{len(df) -1}], {len(df) -1}]")
+            
+        ## translate back from negative indexing to postive indexing
+        if self.end_index < 0:
+            self.end_index= len(df) + self.end_index + 1
+            
         ## counting the number of failed 3D generations
         failed_counter = 0
 
@@ -161,7 +165,9 @@ class SmilesDataset(InMemoryDataset):
         smiles = df.index[self.begin_index: self.end_index]
         indexes = range(self.begin_index, self.end_index)
         
-        for idx, smile in tqdm(zip(indexes,smiles)):
+        for idx in tqdm(indexes):
+            
+            smile = df.index[idx]
 
             ## 2. ETKDG seeded method 3D coordinate generation
             mol, pos = self.get_molecule_and_coordinates(smile)
