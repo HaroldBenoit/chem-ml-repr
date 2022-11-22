@@ -5,6 +5,10 @@
 data/*
 # hiding tuning checkpoints
 .lr_find*
+
+#hiding ligthning_logs
+lightning_l*
+
 # csv files
 
 *.csv

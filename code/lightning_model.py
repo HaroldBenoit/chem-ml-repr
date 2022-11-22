@@ -25,6 +25,7 @@ class LightningClassicGNN(pl.LightningModule):
     
     def __init__(self, classification = True, num_hidden_features=256, dropout_p=0.0, learning_rate=0.01, **kwargs: Any) -> None:
         super(LightningClassicGNN,self).__init__()
+        self.save_hyperparameters()
         
         if "num_node_features" in kwargs:
             self.num_node_features = kwargs["num_node_features"]
@@ -103,19 +104,20 @@ class LightningClassicGNN(pl.LightningModule):
     def training_step(self, batch, batch_index):
         x, edge_index = batch.x , batch.edge_index
         batch_index = batch.batch
-        
+        batch_size= len(batch)
         x_out = self.forward(x, edge_index, batch_index)
         
         if self.classification:
-            loss = F.cross_entropy(x_out, batch.y)
+
+            loss = F.cross_entropy(x_out, torch.squeeze(batch.y,1).long())
         
             # metrics here
             pred = x_out.argmax(-1)
             label = batch.y
             accuracy = (pred ==label).sum() / pred.shape[0]
 
-            self.log("loss/train", loss)
-            self.log("accuracy/train", accuracy)
+            self.log("loss/train", loss, batch_size=batch_size)
+            self.log("accuracy/train", accuracy, batch_size=batch_size)
         else:
             loss= F.l1_loss(x_out,batch.y)
             
@@ -126,17 +128,28 @@ class LightningClassicGNN(pl.LightningModule):
         
         x, edge_index = batch.x , batch.edge_index
         batch_index = batch.batch
-        
+        batch_size= len(batch)
+        print("batch_size", batch_size)
         x_out = self.forward(x, edge_index, batch_index)
+        
+        if self.classification:
+            
+            loss = F.cross_entropy(x_out, torch.squeeze(batch.y,1).long())
+        
+            # metrics here
+            pred = x_out.argmax(-1)
+            label = batch.y
+            accuracy = (pred ==label).sum() / pred.shape[0]
 
-        loss = F.cross_entropy(x_out, batch.y)
-
-        pred = x_out.argmax(-1)
-
-        return x_out, pred, batch.y
+            self.log("loss/valid", loss, batch_size=batch_size)
+            self.log("accuracy/valid", accuracy,batch_size=batch_size)
+            
+            return x_out, pred, batch.y
+        else:
+            return x_out, batch.y
     
     
     def configure_optimizers(self):
-        optimizer = torch.optim.Adam(self.model.parameters(), lr=0.01)
+        optimizer = torch.optim.Adam(self.model.parameters(), lr=self.learning_rate)
         return optimizer
     
