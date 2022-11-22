@@ -10,12 +10,13 @@ from torch_geometric.data import (
 
 import argparse
 
-DATASET_NAMES=['qm9','bace']
 
 
 def main():
+    datasets_func = {"qm9": QM9Dataset, "bace":BaceDataset}
+    
     parser = argparse.ArgumentParser(prog="DatasetProcessing", description="Given the dataset name and root path, processes the dataset according to our method")
-    parser.add_argument('--dataset', help=f"name of the dataset to process. Currently available datasets are:\n{DATASET_NAMES}")
+    parser.add_argument('--dataset', help=f"name of the dataset to process. Currently available datasets are:\n{list(datasets_func.keys())}")
     parser.add_argument('--root', help="path to the root directory where the raw and processed data will be stored")
     parser.add_argument('--hydrogen', action='store_true', help="If flag specified, hydrogens are explicitly described in graph representation.")
     parser.add_argument('--seed', default=0x00ffd, type=int, help="seed for randomness")
@@ -23,13 +24,15 @@ def main():
     parser.add_argument('--end', default=-1, type=int, help="beginning index in the raw data to specify the starting point of processing")
     
     args = parser.parse_args()
-    print(args)
-    parser.add_argument("--regression", action='store_true')
-    args = parser.parse_args()
-    print(args)
     
-    #QM9Dataset(root=args.root, add_hydrogen=args.hydrogen, seed=args.seed, begin_index=args.begin, end_index=args.end)
-    
+
+    if args.dataset in datasets_func:
+        func = datasets_func[args.dataset]
+        dataset, target_names = func(root=args.root, add_hydrogen=args.hydrogen, seed=args.seed, begin_index=args.begin, end_index=args.end)
+        print(f"Available targets for {args.dataset} are: {target_names}")
+    else:
+        raise ValueError(f"Given dataset name {args.dataset} is not in the list of available datasets {list(datasets_func.keys())}")
+        
 
 
 
@@ -103,7 +106,7 @@ def QM9Dataset(root: str, add_hydrogen=False, seed=0x00ffd, begin_index:int=0, e
     return dataset, target_names
 
 
-def BaceDataset(root: str, add_hydrogen=False, seed=0x00ffd, begin_index:int=0, end_index:int = -1, regression=True,
+def BaceDataset(root: str, add_hydrogen=False, seed=0x00ffd, begin_index:int=0, end_index:int = -1,
                 transform: Optional[Callable] = None,
                 pre_transform: Optional[Callable] = None,
                 pre_filter: Optional[Callable] = None) -> SmilesDataset:
