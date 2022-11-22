@@ -3,7 +3,8 @@
 .vscode/
 # Hiding data folders
 data/*
-
+# hiding tuning checkpoints
+.lr_find*
 # csv files
 
 *.csv
