@@ -9,6 +9,11 @@ data/*
 #hiding ligthning_logs
 lightning_l*
 
+#hiding wandb logs
+
+wandb/
+training_artifacts/
+
 # csv files
 
 *.csv

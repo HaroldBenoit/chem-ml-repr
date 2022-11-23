@@ -5,7 +5,7 @@ from torch.nn import Dropout, Linear, ReLU, PReLU
 import torch_geometric
 from torch_geometric.datasets import TUDataset, GNNBenchmarkDataset
 from torch_geometric.loader import DataLoader
-from torch_geometric.nn import GeneralConv, Sequential, global_add_pool
+from torch_geometric.nn import GeneralConv, Sequential, global_add_pool, BatchNorm
 
 from typing import Any
 
@@ -23,7 +23,7 @@ class LightningClassicGNN(pl.LightningModule):
 
     """
     
-    def __init__(self, classification = True, num_hidden_features=256, dropout_p=0.0, learning_rate=0.01, **kwargs: Any) -> None:
+    def __init__(self, classification = True, num_hidden_features=256, dropout_p=0.0, learning_rate=0.01, num_message_passing_layers=4, **kwargs: Any) -> None:
         super(LightningClassicGNN,self).__init__()
         self.save_hyperparameters()
         
@@ -37,62 +37,43 @@ class LightningClassicGNN(pl.LightningModule):
         else:
             raise Exception("num_edge_features not defined")
         
-        
-        if classification:
-            if "num_classes" in kwargs:
-                self.num_classes = kwargs["num_classes"]
-            else:
-                raise ValueError("model set to classification but num_classes not given")
-            
+    
+        if "output_dim" in kwargs:
+            self.output_dim = kwargs["output_dim"]
         else:
-            
-            if "output_dim" in kwargs:
-                self.output_dim = kwargs["output_dim"]
-            else:
-                raise ValueError("model set to regression but num_classes not given")
-            
-
-        #! add batch norm
-        #! add distinction between classification and regression
-        
+            raise ValueError("output_dim not given")
+                    
         self.classification = classification        
         self.hidden = num_hidden_features
         self.dropout_p = dropout_p
         self.learning_rate = learning_rate
+        self.num_message_passing_layers= num_message_passing_layers
         
-        # this is function header definition i.e. input args and return: "arg1, arg2 -> return_type"
+        # how to build layers: function header definition i.e. input args and return: "arg1, arg2 -> return_type"
         
-        layers = [
-            (GeneralConv(in_channels=self.num_node_features, in_edge_channels=self.num_edge_features,out_channels=self.hidden), "x, edge_index -> x1"),
-            (ReLU(), "x1 -> x1a"),
-            (Dropout(p = self.dropout_p), "x1a -> x1d"),
-            (GeneralConv(self.hidden, self.hidden), "x1d, edge_index -> x2"), 
-            (ReLU(), "x2 -> x2a"),                                        
-            (Dropout(p=self.dropout_p), "x2a -> x2d"),                                
-            (GeneralConv(self.hidden, self.hidden), "x2d, edge_index -> x3"),  
-            (ReLU(), "x3 -> x3a"),                                       
-            (Dropout(p=self.dropout_p), "x3a -> x3d"),                             
-            (GeneralConv(self.hidden, self.hidden), "x3d, edge_index -> x4"), 
-            (ReLU(), "x4 -> x4a"),                                      
-            (Dropout(p=self.dropout_p), "x4a -> x4d"),                               
-            (GeneralConv(self.hidden, self.hidden), "x4d, edge_index -> x5"), 
-            (ReLU(), "x5 -> x5a"),                                  
-            (Dropout(p=self.dropout_p), "x5a -> x5d"),
-            (global_add_pool, "x5d, batch_index -> x6" ),
-
-        ]
+        # first initial layer
+        layers=[(GeneralConv(in_channels=self.num_node_features, in_edge_channels=self.num_edge_features,out_channels=self.hidden), "x, edge_index -> x0"),
+                (BatchNorm(in_channels=self.hidden), "x0 -> x0a"),
+                (PReLU(), "x0a -> x0b"),
+                (Dropout(p = self.dropout_p), "x0b -> x0c"),]
         
-        
-        # changing end layer depending on whether we are classfiying or regressing
-        if self.classification:
-            layers.append((Linear(self.hidden, self.num_classes), "x6 -> x_out"))
-        else: 
-            layers.append((Linear(self.hidden, self.output_dim), "x6 -> x_out"))
-        
-        
+        #other message passing layers
+        for i in range(num_message_passing_layers):
+            layers.append((GeneralConv(self.hidden, self.hidden), f"x{i}c, edge_index -> x{i+1}"))
+            layers.append((BatchNorm(in_channels=self.hidden), f"x{i+1} -> x{i+1}a"))
+            layers.append((PReLU(), f"x{i+1}a -> x{i+1}b"))
+            layers.append((Dropout(p = self.dropout_p), f"x{i+1}b -> x{i+1}c"))
+            
+        last_i = num_message_passing_layers -1
+        layers.append((global_add_pool, f"x{last_i +1}c, batch_index -> x{last_i+2}"))
+        layers.append((Linear(self.hidden,self.hidden), f"x{last_i +2} -> x{last_i +3}"))
+        layers.append((Linear(self.hidden, self.output_dim), f"x{last_i +3} -> x_out"))
+    
         
         self.model = Sequential("x, edge_index, batch_index",layers) 
         
+
+
         
         
     def forward(self, x, edge_index, batch_index):
@@ -120,6 +101,7 @@ class LightningClassicGNN(pl.LightningModule):
             self.log("accuracy/train", accuracy, batch_size=batch_size)
         else:
             loss= F.l1_loss(x_out,batch.y)
+            self.log("loss/train", loss, batch_size=batch_size)
             
         
         return loss
@@ -129,7 +111,6 @@ class LightningClassicGNN(pl.LightningModule):
         x, edge_index = batch.x , batch.edge_index
         batch_index = batch.batch
         batch_size= len(batch)
-        print("batch_size", batch_size)
         x_out = self.forward(x, edge_index, batch_index)
         
         if self.classification:
@@ -146,6 +127,9 @@ class LightningClassicGNN(pl.LightningModule):
             
             return x_out, pred, batch.y
         else:
+            
+            loss= F.l1_loss(x_out,batch.y)
+            self.log("loss/valid", loss, batch_size=batch_size)
             return x_out, batch.y
     
     
