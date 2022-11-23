@@ -8,7 +8,7 @@ from torch_geometric.loader import DataLoader
 import os
 import torch
 # making sure we are as determinstic as possibe
-torch.use_deterministic_algorithms(True)
+#torch.use_deterministic_algorithms(True)
 import numpy as np
 
 from torch_geometric.data import Data
@@ -33,17 +33,18 @@ def main():
     
     ## model
     num_hidden_features=32
-    dropout_p = 0.5
+    dropout_p = 0.0
     ## pytorch lighting takes of seeding everything
     pl.seed_everything(seed=seed, workers=True)
     
     ## training
     project="test-project"
-    run_name="test-run-5"
+    run_name="test-run-8"
     num_epochs=1
     # (int) log things every N batches
     log_freq=3
-    devices = 1
+    accelerator="gpu"
+    devices = 2
     
     # only calling to get target_names, could be made clearer
     if "bace" in filename:
@@ -65,14 +66,14 @@ def main():
     gnn_model = LightningClassicGNN(classification=classification, output_dim=output_dim, dropout_p=dropout_p,num_hidden_features=num_hidden_features,  num_node_features=num_node_features, num_edge_features=num_edge_features)
     
     
-    
-    wandb.login()
     #docs: https://pytorch-lightning.readthedocs.io/en/stable/extensions/generated/pytorch_lightning.loggers.WandbLogger.html#pytorch_lightning.loggers.WandbLogger
     wandb_logger = WandbLogger(save_dir="../training_artifacts/", log_model=True, project=project, name=run_name)
     ## log histograms of gradients and parameters
-    wandb_logger.watch(gnn_model, log_freq=log_freq)
-    trainer = pl.Trainer(logger=wandb_logger, deterministic=True, default_root_dir="../training_artifacts/", precision="bf16", max_epochs=num_epochs, log_every_n_steps=log_freq, devices=devices)
-    
+    # wandb_logger.watch(gnn_model, log_freq=log_freq)
+    trainer = pl.Trainer(logger=wandb_logger, deterministic=True, default_root_dir="../training_artifacts/", precision=16,
+	 max_epochs=num_epochs, log_every_n_steps=log_freq, devices=devices, accelerator=accelerator)
+
+    # strategy="ddp"    
     
     
     # tune to find the learning rate
