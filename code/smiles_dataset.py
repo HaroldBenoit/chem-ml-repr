@@ -34,7 +34,7 @@ class SmilesDataset(InMemoryDataset):
                  pre_transform: Optional[Callable] = None,
                  pre_filter: Optional[Callable] = None):
         """
-
+q
         Args:
             root (str): root directory where the raw data can be found and where the processed data will be stored
             filename (str): csv filename of the dataset
@@ -116,27 +116,41 @@ class SmilesDataset(InMemoryDataset):
         if self.end_index < 0:
             self.end_index= len(df) + self.end_index + 1
             
+
+        # dashboard: http://127.0.0.1:8787/status
+        # setting up the local cluster not to overuse all the cores
+        cpu_count = os.cpu_count()
+        usable_cores = cpu_count //2
+        cluster = LocalCluster(n_workers=usable_cores//2, threads_per_worker=usable_cores//2)
+        client = Client(cluster)
+        
+        
         ## counting the number of failed 3D generations
         failed_counter = 0
         data_list = []
         # iterating over the given range
-        smiles = df.index[self.begin_index: self.end_index]
-        indexes = range(self.begin_index, self.end_index)
+        data_len = len(df.index[self.begin_index: self.end_index])
+        indexes = list(range(self.begin_index, self.end_index))
         
-        # dashboard: http://127.0.0.1:8787/status
-        cpu_count = os.cpu_count()
-        usable_cores = cpu_count //2
         
-        cluster = LocalCluster(n_workers=usable_cores//2, threads_per_worker=usable_cores//2)
-        client = Client(cluster)
+        split_factor = 10
+        step = data_len//10
+        final_data_list=[]
         
-        allpromises = [smiles_to_graph(smile=df.index[idx], y=target[idx].unsqueeze(0), idx=idx,
-                                       seed=self.seed, add_hydrogen=self.add_hydrogen, pre_transform=self.pre_transform, pre_filter=self.pre_filter) for idx in indexes]        
-        data_list = dask.compute(allpromises)[0]
-        curr_len = len(data_list)
-        data_list= [data for data in data_list if data is not None]
-        new_len = len(data_list)
-        failed_counter = curr_len - new_len
+        for i in tqdm(range(self.begin_index, self.end_index, step)):
+            
+            ## making sure we're not out-of-bounds at the beginning
+            indexes = range(i, min(i+step, self.end_index))
+            allpromises = [smiles_to_graph(smile=df.index[idx], y=target[idx].unsqueeze(0), idx=idx,
+                                           seed=self.seed, add_hydrogen=self.add_hydrogen, pre_transform=self.pre_transform, pre_filter=self.pre_filter) for idx in indexes]        
+            data_list = dask.compute(allpromises)[0]
+            curr_len = len(data_list)
+            data_list= [data for data in data_list if data is not None]
+            new_len = len(data_list)
+            failed_counter += curr_len - new_len
+            final_data_list = final_data_list + data_list
+            
+            
     
         #for idx in tqdm(indexes):
         #    
@@ -150,10 +164,10 @@ class SmilesDataset(InMemoryDataset):
         #        data_list.append(data)
             
             
-        print(f"NUM MOLECULES SKIPPED {failed_counter}, {failed_counter/len(smiles):.2f}% of the data")
+        print(f"NUM MOLECULES SKIPPED {failed_counter}, {failed_counter/(data_len):.2f}% of the data")
             
                    
-        torch.save(self.collate(data_list), self.processed_paths[0])
+        torch.save(self.collate(final_data_list), self.processed_paths[0])
         
         
 
