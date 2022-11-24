@@ -14,7 +14,7 @@ import argparse
 
 
 def main():
-    datasets_func = {"qm9": QM9Dataset, "bace":BaceDataset}
+    datasets_func = {"qm9": QM9Dataset, "bace":BaceDataset, "bbbp":BBBPDataset}
     
     parser = argparse.ArgumentParser(prog="DatasetProcessing", description="Given the dataset name and root path, processes the dataset according to our method")
     parser.add_argument('--dataset', help=f"name of the dataset to process. Currently available datasets are:\n{list(datasets_func.keys())}")
@@ -147,6 +147,59 @@ def BaceDataset(root: str, add_hydrogen=False, seed=0x00ffd, begin_index:int=0, 
         col_list=["mol", BACE_CLASSIFICATION_TASKS, BACE_REGRESSION_TASKS]
         df.drop(df.columns.difference(col_list), axis=1, inplace=True)
         df.set_index("mol", drop=True, inplace=True)
+        df.to_csv(complete_path)
+    else:
+        df = pd.read_csv(complete_path,index_col=0)       
+        
+    dataset = SmilesDataset(root=root, filename=filename, add_hydrogen=add_hydrogen, seed=seed, begin_index=begin_index, end_index=end_index,
+                         transform=transform, pre_transform=pre_transform, pre_filter=pre_filter)
+    
+    target_names= list(df.columns)
+    
+    return dataset, target_names
+
+
+def BBBPDataset(root: str, add_hydrogen=False, seed=0x00ffd, begin_index:int=0, end_index:int = -1,
+                transform: Optional[Callable] = None,
+                pre_transform: Optional[Callable] = None,
+                pre_filter: Optional[Callable] = None) -> Tuple[SmilesDataset, List[str]]:
+    
+    """
+    Load BBBP dataset
+    
+    The blood-brain barrier penetration (BBBP) dataset is designed for the
+    modeling and prediction of barrier permeability. As a membrane separating
+    circulating blood and brain extracellular fluid, the blood-brain barrier
+    blocks most drugs, hormones and neurotransmitters. Thus penetration of the
+    barrier forms a long-standing issue in development of drugs targeting
+    central nervous system.
+    This dataset includes binary labels for over 2000 compounds on their
+    permeability properties.
+    
+    Scaffold splitting is recommended for this dataset.
+    The raw data csv file contains columns below:
+    - "name" - Name of the compound
+    - "smiles" - SMILES representation of the molecular structure
+    - "p_np" - Binary labels for penetration/non-penetration
+    
+    """ 
+    
+    BBBP_CLASSIFICATION_TASKS = "p_np"
+                    
+    filename="BBBP.csv"
+    raw_url= 'https://deepchemdata.s3-us-west-1.amazonaws.com/datasets/BBBP.csv'
+    raw_dir = f"{root}/raw"
+    os.makedirs(raw_dir, exist_ok=True)
+    complete_path = f"{raw_dir}/{filename}"
+    
+    ## if data has not been downloaded yet
+    if not(os.path.exists(complete_path)):
+
+        filepath= download_url(raw_url, raw_dir)
+        df = pd.read_csv(complete_path)
+        col_list=["smiles", BBBP_CLASSIFICATION_TASKS]
+        df.drop(df.columns.difference(col_list), axis=1, inplace=True)
+        df.set_index("smiles", drop=True, inplace=True)
         df.to_csv(complete_path)
     else:
         df = pd.read_csv(complete_path,index_col=0)       

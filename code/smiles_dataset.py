@@ -186,7 +186,12 @@ def get_molecule_and_coordinates(smile: str, seed:int, add_hydrogen: bool) ->  T
         return None, None
     
     # necessary to add hydrogen for consistent conformer generation
-    m = Chem.AddHs(m)
+    try:
+        m = Chem.AddHs(m)
+    except:
+        print("can't add hydrogen")
+        return None, None
+    
     ## 3D conformer generation
     ps = rdDistGeom.ETKDGv3()
     ps.randomSeed = seed
@@ -201,7 +206,10 @@ def get_molecule_and_coordinates(smile: str, seed:int, add_hydrogen: bool) ->  T
     pos = torch.tensor(pos, dtype=torch.float)
     ## if we dont want hydrogen, we need to rebuild a molecule without explicit hydrogens
     if not(add_hydrogen):
-        m = Chem.RemoveHs(m)
+        # https://sourceforge.net/p/rdkit/mailman/rdkit-discuss/thread/811862b82ce7402b8ba01201a5d0334a%40uni.lu/
+        params = Chem.RemoveHsParameters()
+        params.removeDegreeZero = True
+        m = Chem.RemoveHs(m, params)
         
     return m, pos    
 
