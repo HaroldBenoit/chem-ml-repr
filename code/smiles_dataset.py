@@ -61,8 +61,6 @@ q
         self.end_index = end_index
         self.seed = seed
         self.raw_file_names = filename
-        if add_hydrogen:
-            root = f"{root}_hydrogen"
         
         super().__init__(root, transform, pre_transform, pre_filter)
 
@@ -121,8 +119,8 @@ q
         # setting up the local cluster not to overuse all the cores
         cpu_count = os.cpu_count()
         usable_cores = cpu_count//2
-		num_threads_per_worker = max(4, usable_cores//2)
-		n_workers = usable_cores // num_threads_per_worker
+        num_threads_per_worker = max(4, usable_cores//2)
+        n_workers = usable_cores // num_threads_per_worker
         cluster = LocalCluster(n_workers=n_workers, threads_per_worker=num_threads_per_worker)
         client = Client(cluster)
         

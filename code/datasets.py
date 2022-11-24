@@ -8,7 +8,7 @@ from torch_geometric.data import (
     extract_zip,
 )
 from typing import Tuple, List
-
+import pathlib
 import argparse
 
 
@@ -85,24 +85,13 @@ def QM9Dataset(root: str, add_hydrogen=False, seed=0x00ffd, begin_index:int=0, e
                     
     filename="qm9.csv"
     raw_url= 'https://deepchemdata.s3-us-west-1.amazonaws.com/datasets/qm9.csv'
-    raw_dir = f"{root}/raw"
-    os.makedirs(raw_dir, exist_ok=True)
-    complete_path = f"{raw_dir}/{filename}"
-    
-    ## if data has not been downloaded yet
-    if not(os.path.exists(complete_path)):
-
-        filepath= download_url(raw_url, raw_dir)
-        df = pd.read_csv(complete_path)
-        df.drop(columns=df.columns.difference(QM9_TASKS + ["smiles"]), inplace=True)
-        df.set_index("smiles", drop=True, inplace=True)
-        df.to_csv(complete_path)
-    else:
-        df = pd.read_csv(complete_path,index_col=0)
+            
+    root, target_names = download_dataset(root=root, filename=filename, raw_url=raw_url, target_columns=QM9_TASKS,
+                                          smiles_column_name="smiles", add_hydrogen=add_hydrogen)
+        
         
     dataset = SmilesDataset(root=root, filename=filename, add_hydrogen=add_hydrogen, seed=seed, begin_index=begin_index, end_index=end_index,
                          transform=transform, pre_transform=pre_transform, pre_filter=pre_filter)
-    target_names= list(df.columns)
     
     return dataset, target_names
 
@@ -135,26 +124,13 @@ def BaceDataset(root: str, add_hydrogen=False, seed=0x00ffd, begin_index:int=0, 
                     
     filename="bace.csv"
     raw_url= 'https://deepchemdata.s3-us-west-1.amazonaws.com/datasets/bace.csv'
-    raw_dir = f"{root}/raw"
-    os.makedirs(raw_dir, exist_ok=True)
-    complete_path = f"{raw_dir}/{filename}"
-    
-    ## if data has not been downloaded yet
-    if not(os.path.exists(complete_path)):
-
-        filepath= download_url(raw_url, raw_dir)
-        df = pd.read_csv(complete_path)
-        col_list=["mol", BACE_CLASSIFICATION_TASKS, BACE_REGRESSION_TASKS]
-        df.drop(df.columns.difference(col_list), axis=1, inplace=True)
-        df.set_index("mol", drop=True, inplace=True)
-        df.to_csv(complete_path)
-    else:
-        df = pd.read_csv(complete_path,index_col=0)       
+           
+    root, target_names = download_dataset(root=root, filename=filename, raw_url=raw_url, target_columns=[BACE_CLASSIFICATION_TASKS, BACE_REGRESSION_TASKS],
+                                          smiles_column_name="mol", add_hydrogen=add_hydrogen)
         
     dataset = SmilesDataset(root=root, filename=filename, add_hydrogen=add_hydrogen, seed=seed, begin_index=begin_index, end_index=end_index,
                          transform=transform, pre_transform=pre_transform, pre_filter=pre_filter)
-    
-    target_names= list(df.columns)
+
     
     return dataset, target_names
 
@@ -184,32 +160,43 @@ def BBBPDataset(root: str, add_hydrogen=False, seed=0x00ffd, begin_index:int=0, 
     
     """ 
     
-    BBBP_CLASSIFICATION_TASKS = "p_np"
-                    
+    BBBP_CLASSIFICATION_TASKS = "p_np"    
     filename="BBBP.csv"
     raw_url= 'https://deepchemdata.s3-us-west-1.amazonaws.com/datasets/BBBP.csv'
-    raw_dir = f"{root}/raw"
-    os.makedirs(raw_dir, exist_ok=True)
-    complete_path = f"{raw_dir}/{filename}"
     
-    ## if data has not been downloaded yet
-    if not(os.path.exists(complete_path)):
-
-        filepath= download_url(raw_url, raw_dir)
-        df = pd.read_csv(complete_path)
-        col_list=["smiles", BBBP_CLASSIFICATION_TASKS]
-        df.drop(df.columns.difference(col_list), axis=1, inplace=True)
-        df.set_index("smiles", drop=True, inplace=True)
-        df.to_csv(complete_path)
-    else:
-        df = pd.read_csv(complete_path,index_col=0)       
+    root, target_names = download_dataset(root=root, filename=filename, raw_url=raw_url, target_columns=[BBBP_CLASSIFICATION_TASKS],
+                                          smiles_column_name="smiles", add_hydrogen=add_hydrogen)
         
     dataset = SmilesDataset(root=root, filename=filename, add_hydrogen=add_hydrogen, seed=seed, begin_index=begin_index, end_index=end_index,
                          transform=transform, pre_transform=pre_transform, pre_filter=pre_filter)
     
+    return dataset, target_names
+
+
+def download_dataset(root:str, filename:str, raw_url:str, target_columns:List[str], smiles_column_name: str, add_hydrogen: bool):
+    
+    if add_hydrogen:
+        p=pathlib.Path(root)
+        root = f"{str(p.parent)}/{p.stem}_hydrogen"
+    raw_dir = f"{root}/raw"
+    os.makedirs(raw_dir, exist_ok=True)
+    complete_path = f"{raw_dir}/{filename}"
+    
+        ## if data has not been downloaded yet
+    if not(os.path.exists(complete_path)):
+
+        filepath= download_url(raw_url, raw_dir)
+        df = pd.read_csv(complete_path)
+        col_list=[smiles_column_name]+ target_columns
+        df.drop(df.columns.difference(col_list), axis=1, inplace=True)
+        df.set_index(smiles_column_name, drop=True, inplace=True)
+        df.to_csv(complete_path)
+    else:
+        df = pd.read_csv(complete_path,index_col=0)    
+
     target_names= list(df.columns)
     
-    return dataset, target_names 
+    return root, target_names
 
 
 
