@@ -23,7 +23,7 @@ class Datasets():
 
     
 
-    def QM9Dataset(self) -> Tuple[str, List[str]]:
+    def QM9Dataset(self) -> Tuple[str, str, List[str]]:
 
         """Load QM9 dataset
         QM9 is a comprehensive dataset that provides geometric, energetic,
@@ -74,7 +74,7 @@ class Datasets():
         return root, filename, target_names
 
 
-    def BaceDataset(self) -> Tuple[str, List[str]]:
+    def BaceDataset(self) -> Tuple[str,str, List[str]]:
         """ 
 
         Load BACE dataset
@@ -106,7 +106,7 @@ class Datasets():
         return root, filename,target_names
 
 
-    def BBBPDataset(self) -> Tuple[str, List[str]]:
+    def BBBPDataset(self) -> Tuple[str, str, List[str]]:
 
         """
         Load BBBP dataset

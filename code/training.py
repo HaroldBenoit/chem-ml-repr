@@ -16,7 +16,7 @@ from typing import List, Callable
 from functools import partial
 from smiles_dataset import SmilesDataset
 from torch_geometric.transforms import Compose, distance
-from datasets import BaceDataset, QM9Dataset
+from datasets import Datasets
 import wandb
 import pdb
 import argparse
@@ -55,10 +55,12 @@ def main():
     
     # only calling to get target_names, could be made clearer
     if "bace" in filename:
-        data,target_names = BaceDataset(root=root, add_hydrogen=hydrogen, seed=seed)
+        root, filename, target_names = Datasets(root=root, add_hydrogen=hydrogen, seed=seed).BaceDataset()
     elif "qm9" in filename:
-        data,target_names = QM9Dataset(root=root, add_hydrogen=hydrogen, seed=seed) 
-    del data
+        root, filename, target_names  = Datasets(root=root, add_hydrogen=hydrogen, seed=seed).QM9Dataset()
+    elif "bbbp" in filename:
+        root, filename, target_names  = Datasets(root=root, add_hydrogen=hydrogen, seed=seed).BBBPDataset()
+
     
     if debug:
         pdb.set_trace(header="Before dataset transform")
