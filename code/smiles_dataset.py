@@ -19,12 +19,15 @@ from torch_geometric.data import (
     InMemoryDataset)
 
 ## parallelization
-#import dask
-#dask.config.set(scheduler="processes")
+import os
+import dask
+dask.config.set(scheduler="processes")
+from dask.distributed import Client, LocalCluster
 
 class SmilesDataset(InMemoryDataset):
     """ Dataset class to go from (smiles,target) data format to (graph data, target) data format,
-    Implemented as a Pytorch Geometric InMemoryDataset for ease of use"""
+    Implemented as a Pytorch Geometric InMemoryDataset for ease of use.
+    Hyper-parallelized using Dask, beware."""
     
     
     def __init__(self, root: str, filename:str, add_hydrogen=False, seed=0x00ffd, begin_index:int=0, end_index:int = -1, transform: Optional[Callable] = None,
@@ -87,50 +90,6 @@ class SmilesDataset(InMemoryDataset):
     def download(self):
         pass
 
-
-    def get_molecule_and_coordinates(self, smile: str) ->  Tuple[Chem.rdchem.Mol, torch.Tensor]:
-        """From smiles string, generate 3D coordinates using seeded ETKDG procedure.
-
-        Args:
-            smile (str): valid smiles tring of molecule
-
-        Returns:
-            Tuple[Chem.rdchem.Mol, torch.Tensor]: molecule and 3D coordinates of atom
-        """
-        
-        try:
-            m = Chem.MolFromSmiles(smile)
-        except:
-            print("invalid smiles string")
-            return None, None
-        
-        # necessary to add hydrogen for consistent conformer generation
-        m = Chem.AddHs(m)
-
-        ## 3D conformer generation
-        ps = rdDistGeom.ETKDGv3()
-        ps.randomSeed = self.seed
-        #ps.coordMap = coordMap = {0:[0,0,0]}
-        err = AllChem.EmbedMolecule(m,ps)
-        
-        # conformer generation failed for some reason (molecule too big is an option)
-        if err !=0:
-            return None, None
-
-
-        conf = m.GetConformer()
-        pos = conf.GetPositions()
-        pos = torch.tensor(pos, dtype=torch.float)
-
-        ## if we dont want hydrogen, we need to rebuild a molecule without explicit hydrogens
-        if not(self.add_hydrogen):
-            m = Chem.RemoveHs(m)
-            
-        return m, pos    
-
-        
-
-
     def process(self):
         """ Full processing procedure for the raw csv dataset. 
         
@@ -164,88 +123,138 @@ class SmilesDataset(InMemoryDataset):
         smiles = df.index[self.begin_index: self.end_index]
         indexes = range(self.begin_index, self.end_index)
         
-        for idx in tqdm(indexes):
-            
-            smile = df.index[idx]
-            y = target[idx].unsqueeze(0)
-            data = self.smiles_to_graph(smile=smile, y=y,idx=idx)
-            
-            if smile is None:
-                failed_counter+=1
-            else:
-                data_list.append(data)
+        # dashboard: http://127.0.0.1:8787/status
+        cpu_count = os.cpu_count()
+        usable_cores = cpu_count //2
+        
+        cluster = LocalCluster(n_workers=usable_cores//2, threads_per_worker=usable_cores//2)
+        client = Client(cluster)
+        
+        allpromises = [smiles_to_graph(smile=df.index[idx], y=target[idx].unsqueeze(0), idx=idx,
+                                       seed=self.seed, add_hydrogen=self.add_hydrogen, pre_transform=self.pre_transform, pre_filter=self.pre_filter) for idx in indexes]        
+        data_list = dask.compute(allpromises)[0]
+        curr_len = len(data_list)
+        data_list= [data for data in data_list if data is not None]
+        new_len = len(data_list)
+        failed_counter = curr_len - new_len
+    
+        #for idx in tqdm(indexes):
+        #    
+        #    smile = df.index[idx]
+        #    y = target[idx].unsqueeze(0)
+        #    data = self.smiles_to_graph(smile=smile, y=y,idx=idx)
+        #    
+        #    if smile is None:
+        #        failed_counter+=1
+        #    else:
+        #        data_list.append(data)
             
             
         print(f"NUM MOLECULES SKIPPED {failed_counter}, {failed_counter/len(smiles):.2f}% of the data")
             
                    
         torch.save(self.collate(data_list), self.processed_paths[0])
+        
+        
 
-
-
-    def smiles_to_graph(self, smile:str, y:torch.tensor, idx: int) -> Data:
-        
-        ## 2. ETKDG seeded method 3D coordinate generation
-        mol, pos = self.get_molecule_and_coordinates(smile)
-        
-        if mol is None:
-            return None
-        # 3. QM9 featurization of nodes
-        N = mol.GetNumAtoms()
-        atomic_number = []
-        aromatic = []
-        sp = []
-        sp2 = []
-        sp3 = []
-        for atom in mol.GetAtoms():
-            atomic_number.append(atom.GetAtomicNum())
-            aromatic.append(1 if atom.GetIsAromatic() else 0)
-            hybridization = atom.GetHybridization()
-            sp.append(1 if hybridization == HybridizationType.SP else 0)
-            sp2.append(1 if hybridization == HybridizationType.SP2 else 0)
-            sp3.append(1 if hybridization == HybridizationType.SP3 else 0)
-        z = torch.tensor(atomic_number, dtype=torch.long)
-        
-        
-        
-        # 4. Create the complete graph (no self-loops) with covalent bond types as edge attributes
-        
-        # must start at 1, as we will be using a defaultdict with default value of 0 (indicating no covalent bond)
-        bonds = {BT.SINGLE: 1, BT.DOUBLE: 2, BT.TRIPLE: 3, BT.AROMATIC: 4}
-        # getting all covalent bond types
-        bonds_dict = {(bond.GetBeginAtomIdx(),bond.GetEndAtomIdx()):bonds[bond.GetBondType()] for bond in mol.GetBonds()}
-        # returns 0 for all pairs of atoms with no covalent bond 
-        bonds_dict = defaultdict(int, bonds_dict)
-        # making the complete graph
-        first_node_index = []
-        second_node_index = []
-        edge_type=[]
-        distances=[]
-        
-        for i in range(N):
-            for j in range(N):
-                if i!=j:
-                    first_node_index.append(i)
-                    second_node_index.append(j)
-                    edge_type.append(bonds_dict[(i,j)] if i < j else bonds_dict[(j,i)])
+def get_molecule_and_coordinates(smile: str, seed:int, add_hydrogen: bool) ->  Tuple[Chem.rdchem.Mol, torch.Tensor]:
+    """From smiles string, generate 3D coordinates using seeded ETKDG procedure.
+    Args:
+        smile (str): valid smiles tring of molecule
+    Returns:
+        Tuple[Chem.rdchem.Mol, torch.Tensor]: molecule and 3D coordinates of atom
+    """
     
+    try:
+        m = Chem.MolFromSmiles(smile)
+    except:
+        print("invalid smiles string")
+        return None, None
+    
+    # necessary to add hydrogen for consistent conformer generation
+    m = Chem.AddHs(m)
+    ## 3D conformer generation
+    ps = rdDistGeom.ETKDGv3()
+    ps.randomSeed = seed
+    #ps.coordMap = coordMap = {0:[0,0,0]}
+    err = AllChem.EmbedMolecule(m,ps)
+    
+    # conformer generation failed for some reason (molecule too big is an option)
+    if err !=0:
+        return None, None
+    conf = m.GetConformer()
+    pos = conf.GetPositions()
+    pos = torch.tensor(pos, dtype=torch.float)
+    ## if we dont want hydrogen, we need to rebuild a molecule without explicit hydrogens
+    if not(add_hydrogen):
+        m = Chem.RemoveHs(m)
+        
+    return m, pos    
 
-        edge_index = torch.tensor([first_node_index, second_node_index], dtype=torch.long)
-        edge_type = torch.tensor(edge_type, dtype=torch.long)
-        edge_attr = F.one_hot(edge_type, num_classes=len(bonds)+1).to(torch.float)
+
+@dask.delayed
+def smiles_to_graph(smile:str, y:torch.tensor, idx: int, seed:int, add_hydrogen:bool, pre_transform: Callable, pre_filter:Callable) -> Data:
+    
+    ## 2. ETKDG seeded method 3D coordinate generation
+    mol, pos = get_molecule_and_coordinates(smile=smile, seed=seed, add_hydrogen=add_hydrogen)
+    
+    if mol is None:
+        return None
+    # 3. QM9 featurization of nodes
+    N = mol.GetNumAtoms()
+    atomic_number = []
+    aromatic = []
+    sp = []
+    sp2 = []
+    sp3 = []
+    for atom in mol.GetAtoms():
+        atomic_number.append(atom.GetAtomicNum())
+        aromatic.append(1 if atom.GetIsAromatic() else 0)
+        hybridization = atom.GetHybridization()
+        sp.append(1 if hybridization == HybridizationType.SP else 0)
+        sp2.append(1 if hybridization == HybridizationType.SP2 else 0)
+        sp3.append(1 if hybridization == HybridizationType.SP3 else 0)
+    z = torch.tensor(atomic_number, dtype=torch.long)
+    
+    
+    
+    # 4. Create the complete graph (no self-loops) with covalent bond types as edge attributes
+    
+    # must start at 1, as we will be using a defaultdict with default value of 0 (indicating no covalent bond)
+    bonds = {BT.SINGLE: 1, BT.DOUBLE: 2, BT.TRIPLE: 3, BT.AROMATIC: 4}
+    # getting all covalent bond types
+    bonds_dict = {(bond.GetBeginAtomIdx(),bond.GetEndAtomIdx()):bonds[bond.GetBondType()] for bond in mol.GetBonds()}
+    # returns 0 for all pairs of atoms with no covalent bond 
+    bonds_dict = defaultdict(int, bonds_dict)
+    # making the complete graph
+    first_node_index = []
+    second_node_index = []
+    edge_type=[]
+    distances=[]
+    
+    for i in range(N):
+        for j in range(N):
+            if i!=j:
+                first_node_index.append(i)
+                second_node_index.append(j)
+                edge_type.append(bonds_dict[(i,j)] if i < j else bonds_dict[(j,i)])
+
+    edge_index = torch.tensor([first_node_index, second_node_index], dtype=torch.long)
+    edge_type = torch.tensor(edge_type, dtype=torch.long)
+    edge_attr = F.one_hot(edge_type, num_classes=len(bonds)+1).to(torch.float)
+    
+    #x1 = F.one_hot(torch.tensor(type_idx), num_classes=len(types))
+    
+    # 5. Bundling everything into the Data (graph) type
+    
+    x = torch.tensor([atomic_number, aromatic, sp, sp2, sp3],dtype=torch.float).t().contiguous()
+    #x = torch.cat([x1.to(torch.float), x2], dim=-1)
+    data = Data(x=x, z=z, pos=pos, edge_index=edge_index,
+                edge_attr=edge_attr, y=y, name=smile, idx=idx)
+    if pre_filter is not None and not pre_filter(data):
+        return None
+    
+    if pre_transform is not None:
+        data = pre_transform(data)
         
-        #x1 = F.one_hot(torch.tensor(type_idx), num_classes=len(types))
-        
-        # 5. Bundling everything into the Data (graph) type
-        
-        x = torch.tensor([atomic_number, aromatic, sp, sp2, sp3],dtype=torch.float).t().contiguous()
-        #x = torch.cat([x1.to(torch.float), x2], dim=-1)
-        data = Data(x=x, z=z, pos=pos, edge_index=edge_index,
-                    edge_attr=edge_attr, y=y, name=smile, idx=idx)
-        if self.pre_filter is not None and not self.pre_filter(data):
-            return None
-        
-        if self.pre_transform is not None:
-            data = self.pre_transform(data)
-            
-        return data
+    return data    
