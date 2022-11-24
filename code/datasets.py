@@ -7,6 +7,7 @@ from torch_geometric.data import (
     download_url,
     extract_zip,
 )
+from typing import Tuple, List
 
 import argparse
 
@@ -39,7 +40,7 @@ def main():
 def QM9Dataset(root: str, add_hydrogen=False, seed=0x00ffd, begin_index:int=0, end_index:int = -1,
                 transform: Optional[Callable] = None,
                 pre_transform: Optional[Callable] = None,
-                pre_filter: Optional[Callable] = None) -> SmilesDataset:
+                pre_filter: Optional[Callable] = None) -> Tuple[SmilesDataset, List[str]]:
     
     """Load QM9 dataset
     QM9 is a comprehensive dataset that provides geometric, energetic,
@@ -109,7 +110,7 @@ def QM9Dataset(root: str, add_hydrogen=False, seed=0x00ffd, begin_index:int=0, e
 def BaceDataset(root: str, add_hydrogen=False, seed=0x00ffd, begin_index:int=0, end_index:int = -1,
                 transform: Optional[Callable] = None,
                 pre_transform: Optional[Callable] = None,
-                pre_filter: Optional[Callable] = None) -> SmilesDataset:
+                pre_filter: Optional[Callable] = None) -> Tuple[SmilesDataset, List[str]]:
     
     """ 
     

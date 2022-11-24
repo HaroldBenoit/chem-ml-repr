@@ -18,7 +18,9 @@ from torch_geometric.data import (
     Data,
     InMemoryDataset)
 
-
+## parallelization
+#import dask
+#dask.config.set(scheduler="processes")
 
 class SmilesDataset(InMemoryDataset):
     """ Dataset class to go from (smiles,target) data format to (graph data, target) data format,
@@ -157,9 +159,6 @@ class SmilesDataset(InMemoryDataset):
             
         ## counting the number of failed 3D generations
         failed_counter = 0
-
-
-
         data_list = []
         # iterating over the given range
         smiles = df.index[self.begin_index: self.end_index]
@@ -168,78 +167,13 @@ class SmilesDataset(InMemoryDataset):
         for idx in tqdm(indexes):
             
             smile = df.index[idx]
-
-            ## 2. ETKDG seeded method 3D coordinate generation
-            mol, pos = self.get_molecule_and_coordinates(smile)
-            
-            if mol is None:
-                failed_counter += 1
-                continue
-
-            # 3. QM9 featurization of nodes
-            N = mol.GetNumAtoms()
-            atomic_number = []
-            aromatic = []
-            sp = []
-            sp2 = []
-            sp3 = []
-            for atom in mol.GetAtoms():
-                atomic_number.append(atom.GetAtomicNum())
-                aromatic.append(1 if atom.GetIsAromatic() else 0)
-                hybridization = atom.GetHybridization()
-                sp.append(1 if hybridization == HybridizationType.SP else 0)
-                sp2.append(1 if hybridization == HybridizationType.SP2 else 0)
-                sp3.append(1 if hybridization == HybridizationType.SP3 else 0)
-
-            z = torch.tensor(atomic_number, dtype=torch.long)
-            
-            
-            
-            # 4. Create the complete graph (no self-loops) with covalent bond types as edge attributes
-            
-            # must start at 1, as we will be using a defaultdict with default value of 0 (indicating no covalent bond)
-            bonds = {BT.SINGLE: 1, BT.DOUBLE: 2, BT.TRIPLE: 3, BT.AROMATIC: 4}
-            # getting all covalent bond types
-            bonds_dict = {(bond.GetBeginAtomIdx(),bond.GetEndAtomIdx()):bonds[bond.GetBondType()] for bond in mol.GetBonds()}
-            # returns 0 for all pairs of atoms with no covalent bond 
-            bonds_dict = defaultdict(int, bonds_dict)
-
-            # making the complete graph
-            first_node_index = []
-            second_node_index = []
-            edge_type=[]
-            distances=[]
-            
-            for i in range(N):
-                for j in range(N):
-                    if i!=j:
-                        first_node_index.append(i)
-                        second_node_index.append(j)
-                        edge_type.append(bonds_dict[(i,j)] if i < j else bonds_dict[(j,i)])
-        
-    
-            edge_index = torch.tensor([first_node_index, second_node_index], dtype=torch.long)
-            edge_type = torch.tensor(edge_type, dtype=torch.long)
-            edge_attr = F.one_hot(edge_type, num_classes=len(bonds)+1).to(torch.float)
-            
-
-            #x1 = F.one_hot(torch.tensor(type_idx), num_classes=len(types))
-            
-            # 5. Bundling everything into the Data (graph) type
-            
-            x = torch.tensor([atomic_number, aromatic, sp, sp2, sp3],dtype=torch.float).t().contiguous()
-            #x = torch.cat([x1.to(torch.float), x2], dim=-1)
-
             y = target[idx].unsqueeze(0)
-            data = Data(x=x, z=z, pos=pos, edge_index=edge_index,
-                        edge_attr=edge_attr, y=y, name=smile, idx=idx)
-
-            if self.pre_filter is not None and not self.pre_filter(data):
-                continue
-            if self.pre_transform is not None:
-                data = self.pre_transform(data)
-
-            data_list.append(data)
+            data = self.smiles_to_graph(smile=smile, y=y,idx=idx)
+            
+            if smile is None:
+                failed_counter+=1
+            else:
+                data_list.append(data)
             
             
         print(f"NUM MOLECULES SKIPPED {failed_counter}, {failed_counter/len(smiles):.2f}% of the data")
@@ -248,3 +182,70 @@ class SmilesDataset(InMemoryDataset):
         torch.save(self.collate(data_list), self.processed_paths[0])
 
 
+
+    def smiles_to_graph(self, smile:str, y:torch.tensor, idx: int) -> Data:
+        
+        ## 2. ETKDG seeded method 3D coordinate generation
+        mol, pos = self.get_molecule_and_coordinates(smile)
+        
+        if mol is None:
+            return None
+        # 3. QM9 featurization of nodes
+        N = mol.GetNumAtoms()
+        atomic_number = []
+        aromatic = []
+        sp = []
+        sp2 = []
+        sp3 = []
+        for atom in mol.GetAtoms():
+            atomic_number.append(atom.GetAtomicNum())
+            aromatic.append(1 if atom.GetIsAromatic() else 0)
+            hybridization = atom.GetHybridization()
+            sp.append(1 if hybridization == HybridizationType.SP else 0)
+            sp2.append(1 if hybridization == HybridizationType.SP2 else 0)
+            sp3.append(1 if hybridization == HybridizationType.SP3 else 0)
+        z = torch.tensor(atomic_number, dtype=torch.long)
+        
+        
+        
+        # 4. Create the complete graph (no self-loops) with covalent bond types as edge attributes
+        
+        # must start at 1, as we will be using a defaultdict with default value of 0 (indicating no covalent bond)
+        bonds = {BT.SINGLE: 1, BT.DOUBLE: 2, BT.TRIPLE: 3, BT.AROMATIC: 4}
+        # getting all covalent bond types
+        bonds_dict = {(bond.GetBeginAtomIdx(),bond.GetEndAtomIdx()):bonds[bond.GetBondType()] for bond in mol.GetBonds()}
+        # returns 0 for all pairs of atoms with no covalent bond 
+        bonds_dict = defaultdict(int, bonds_dict)
+        # making the complete graph
+        first_node_index = []
+        second_node_index = []
+        edge_type=[]
+        distances=[]
+        
+        for i in range(N):
+            for j in range(N):
+                if i!=j:
+                    first_node_index.append(i)
+                    second_node_index.append(j)
+                    edge_type.append(bonds_dict[(i,j)] if i < j else bonds_dict[(j,i)])
+    
+
+        edge_index = torch.tensor([first_node_index, second_node_index], dtype=torch.long)
+        edge_type = torch.tensor(edge_type, dtype=torch.long)
+        edge_attr = F.one_hot(edge_type, num_classes=len(bonds)+1).to(torch.float)
+        
+        #x1 = F.one_hot(torch.tensor(type_idx), num_classes=len(types))
+        
+        # 5. Bundling everything into the Data (graph) type
+        
+        x = torch.tensor([atomic_number, aromatic, sp, sp2, sp3],dtype=torch.float).t().contiguous()
+        #x = torch.cat([x1.to(torch.float), x2], dim=-1)
+        data = Data(x=x, z=z, pos=pos, edge_index=edge_index,
+                    edge_attr=edge_attr, y=y, name=smile, idx=idx)
+        if self.pre_filter is not None and not self.pre_filter(data):
+            return None
+        
+        if self.pre_transform is not None:
+            data = self.pre_transform(data)
+            
+        return data
