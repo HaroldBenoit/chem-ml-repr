@@ -61,14 +61,14 @@ def main():
     del data
     
     if debug:
-        pdb.set_trace("Before dataset transform")
+        pdb.set_trace(header="Before dataset transform")
     
     # filtering out irrelevant target and computing euclidean distances between each vertices
     transforms=Compose([filter_target(target_names=target_names, target='Class'), distance.Distance()])
     dataset = SmilesDataset(root=root,filename="bace.csv", add_hydrogen=hydrogen, seed=seed,transform=transforms)
 
     if debug:
-        pdb.set_trace("After dataset transform")
+        pdb.set_trace(header="After dataset transform")
     
     # from torch dataset, create lightning data module to make sure training splits are always done the same ways
     data_module = SmilesDataModule(dataset=dataset, seed=seed)
@@ -89,7 +89,7 @@ def main():
     # strategy="ddp"   
     
     if debug:
-        pdb.set_trace("After trainer instantation")
+        pdb.set_trace(header="After trainer instantation")
     
     # tune to find the learning rate
     #trainer.tune(gnn_model,datamodule=data_module)
@@ -98,7 +98,7 @@ def main():
     trainer.fit(gnn_model, datamodule=data_module)
     
     if debug:
-        pdb.set_trace("After trainer fit")
+        pdb.set_trace(header="After trainer fit")
     
     trainer.validate(gnn_model, datamodule=data_module)
     
