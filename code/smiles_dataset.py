@@ -120,8 +120,10 @@ q
         # dashboard: http://127.0.0.1:8787/status
         # setting up the local cluster not to overuse all the cores
         cpu_count = os.cpu_count()
-        usable_cores = cpu_count //2
-        cluster = LocalCluster(n_workers=usable_cores//2, threads_per_worker=usable_cores//2)
+        usable_cores = cpu_count//2
+		num_threads_per_worker = max(4, usable_cores//2)
+		n_workers = usable_cores // num_threads_per_worker
+        cluster = LocalCluster(n_workers=n_workers, threads_per_worker=num_threads_per_worker)
         client = Client(cluster)
         
         
@@ -133,8 +135,8 @@ q
         indexes = list(range(self.begin_index, self.end_index))
         
         
-        split_factor = 10
-        step = data_len//10
+        split_factor = 200
+        step = data_len//split_factor
         final_data_list=[]
         
         for i in tqdm(range(self.begin_index, self.end_index, step)):
