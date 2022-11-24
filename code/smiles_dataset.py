@@ -122,6 +122,8 @@ q
         #usable_cores = cpu_count//2
         #num_threads_per_worker = max(4, usable_cores//2)
         #n_workers = usable_cores // num_threads_per_worker
+        dask.config.set({'distributed.comm.timeouts.connect': 60, 'distributed.comm.timeouts.tcp': 60, 'distributed.client.heartbeat':10})
+        
         if self.on_cluster:
             cluster = LocalCluster(n_workers=5, threads_per_worker=2, memory_limit=12e9)
         else:
@@ -129,8 +131,6 @@ q
             
         client = Client(cluster)
         
-        dask.config.set({'distributed.comm.timeouts.connect': 60})
-        dask.config.set({'distributed.comm.timeouts.tcp': 60})
         
         ## counting the number of failed 3D generations
         failed_counter = 0
