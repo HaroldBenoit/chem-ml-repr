@@ -18,9 +18,16 @@ from smiles_dataset import SmilesDataset
 from torch_geometric.transforms import Compose, distance
 from datasets import BaceDataset, QM9Dataset
 import wandb
-
+import pdb
+import argparse
 
 def main():
+    
+    parser = argparse.ArgumentParser(prog="Training", description="Training pipeline")
+    parser.add_argument('--debug', action='store_true', help="If flag specified, activate breakpoints in the script")
+    args = parser.parse_args()
+
+    debug= args.debug
 
     ## dataset
     root= "../data/bace"
@@ -53,9 +60,15 @@ def main():
         data,target_names = QM9Dataset(root=root, add_hydrogen=hydrogen, seed=seed) 
     del data
     
+    if debug:
+        pdb.set_trace("Before dataset transform")
+    
     # filtering out irrelevant target and computing euclidean distances between each vertices
     transforms=Compose([filter_target(target_names=target_names, target='Class'), distance.Distance()])
     dataset = SmilesDataset(root=root,filename="bace.csv", add_hydrogen=hydrogen, seed=seed,transform=transforms)
+
+    if debug:
+        pdb.set_trace("After dataset transform")
     
     # from torch dataset, create lightning data module to make sure training splits are always done the same ways
     data_module = SmilesDataModule(dataset=dataset, seed=seed)
@@ -73,14 +86,19 @@ def main():
     trainer = pl.Trainer(logger=wandb_logger, deterministic=True, default_root_dir="../training_artifacts/", precision=16,
 	 max_epochs=num_epochs, log_every_n_steps=log_freq, devices=devices, accelerator=accelerator)
 
-    # strategy="ddp"    
+    # strategy="ddp"   
     
+    if debug:
+        pdb.set_trace("After trainer instantation")
     
     # tune to find the learning rate
     #trainer.tune(gnn_model,datamodule=data_module)
     
     # we can resume from a checkpoint using trainer.fit(ckpth_path="some/path/to/my_checkpoint.ckpt")
     trainer.fit(gnn_model, datamodule=data_module)
+    
+    if debug:
+        pdb.set_trace("After trainer fit")
     
     trainer.validate(gnn_model, datamodule=data_module)
     
