@@ -46,12 +46,12 @@ def main():
     
     ## training
     project="test-project"
-    run_name="test-run-8"
-    num_epochs=1
+    run_name="test-run-30-epochs"
+    num_epochs=30
     # (int) log things every N batches
     log_freq=3
     accelerator="gpu"
-    devices = 2
+    devices = [3]
     
     # only calling to get target_names, could be made clearer
     if "bace" in filename:
@@ -83,7 +83,7 @@ def main():
     wandb_logger = WandbLogger(save_dir="../training_artifacts/", log_model=True, project=project, name=run_name)
     ## log histograms of gradients and parameters
     # wandb_logger.watch(gnn_model, log_freq=log_freq)
-    trainer = pl.Trainer(logger=wandb_logger, deterministic=True, default_root_dir="../training_artifacts/", precision=16,
+    trainer = pl.Trainer(logger=wandb_logger, deterministic=False, default_root_dir="../training_artifacts/", precision=16,
 	 max_epochs=num_epochs, log_every_n_steps=log_freq, devices=devices, accelerator=accelerator)
 
     # strategy="ddp"   
