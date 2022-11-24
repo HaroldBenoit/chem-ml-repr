@@ -175,6 +175,7 @@ def main():
     parser.add_argument('--seed', default=0x00ffd, type=int, help="seed for randomness")
     parser.add_argument('--begin', default=0, type=int, help="beginning index in the raw data to specify the starting point of processing")
     parser.add_argument('--end', default=-1, type=int, help="beginning index in the raw data to specify the starting point of processing")
+    parser.add_argument('--cluster',action='store_true', help="If flag specified, expects to run on lts2gdk0" )
     args = parser.parse_args()
 
     datasets = Datasets(root=args.root, add_hydrogen=args.hydrogen, seed=args.seed)
@@ -183,7 +184,7 @@ def main():
     if args.dataset in datasets.datasets_func:
         root, filename, target_names = datasets.datasets_func[args.dataset]()
         #forcing processing of dataset by calling it
-        _ = SmilesDataset(root=root, filename=filename, add_hydrogen=args.hydrogen, seed=args.seed, begin_index=args.begin, end_index=args.end)
+        _ = SmilesDataset(root=root, filename=filename, add_hydrogen=args.hydrogen, seed=args.seed, begin_index=args.begin, end_index=args.end, on_cluster=args.cluster)
         print(f"Available targets for {args.dataset} are: {target_names}")
     else:
         raise ValueError(f"Given dataset name {args.dataset} is not in the list of available datasets {list(datasets.datasets_func.keys())}")

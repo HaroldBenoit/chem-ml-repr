@@ -30,7 +30,7 @@ class SmilesDataset(InMemoryDataset):
     Hyper-parallelized using Dask, beware."""
     
     
-    def __init__(self, root: str, filename:str, add_hydrogen=False, seed=0x00ffd, begin_index:int=0, end_index:int = -1, transform: Optional[Callable] = None,
+    def __init__(self, root: str, filename:str, add_hydrogen=False, seed=0x00ffd, begin_index:int=0, end_index:int = -1, on_cluster:bool = False, transform: Optional[Callable] = None,
                  pre_transform: Optional[Callable] = None,
                  pre_filter: Optional[Callable] = None):
         """
@@ -60,6 +60,7 @@ q
         self.begin_index = begin_index
         self.end_index = end_index
         self.seed = seed
+        self.on_cluster = on_cluster
         self.raw_file_names = filename
         
         super().__init__(root, transform, pre_transform, pre_filter)
@@ -117,13 +118,16 @@ q
 
         # dashboard: http://127.0.0.1:8787/status
         # setting up the local cluster not to overuse all the cores
-        cpu_count = os.cpu_count()
-        usable_cores = cpu_count//2
-        num_threads_per_worker = max(4, usable_cores//2)
-        n_workers = usable_cores // num_threads_per_worker
-        cluster = LocalCluster(n_workers=n_workers, threads_per_worker=num_threads_per_worker)
+        #cpu_count = os.cpu_count()
+        #usable_cores = cpu_count//2
+        #num_threads_per_worker = max(4, usable_cores//2)
+        #n_workers = usable_cores // num_threads_per_worker
+        if self.on_cluster:
+            cluster = LocalCluster(n_workers=6, threads_per_worker=4, memory_limit=12e9)
+        else:
+            cluster = LocalCluster(n_workers=3, threads_per_worker=1, memory_limit=1e9)
+            
         client = Client(cluster)
-        
         
         ## counting the number of failed 3D generations
         failed_counter = 0
