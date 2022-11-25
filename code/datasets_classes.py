@@ -192,8 +192,7 @@ class QM9Dataset(Dataset):
         # iterating over the given range
         data_len = len(df)
         step = data_len//self.split_factor
-        final_data_list=[]
-        
+                
         ## necessary data to log so that we can tell which idx data goes into which split at which point
         aux_data = {"old_data_len":len(df), "step": step, }
         
@@ -205,9 +204,10 @@ class QM9Dataset(Dataset):
             else:
                 indexes = range(i*step, data_len)
             
-            allpromises = [smiles_to_graph(smile=df.index[idx], y=target[idx].unsqueeze(0), idx=idx,
+            data_list = [smiles_to_graph(smile=df.index[idx], y=target[idx].unsqueeze(0), idx=idx,
                                            seed=self.seed, add_hydrogen=self.add_hydrogen, pre_transform=self.pre_transform, pre_filter=self.pre_filter) for idx in indexes]        
-            data_list = dask.compute(allpromises)[0]
+            #data_list = client.compute(allpromises)
+            #data_list = client.gather(data_list)
             
             ## need to count the number of skipped molecules to be able to give correct index in get()
             curr_len = len(data_list)
@@ -219,10 +219,12 @@ class QM9Dataset(Dataset):
             if i == 0:
                 aux_data[0] = {"begin": 0, "end": step - num_skipped}
             elif i > 0 and i < self.split_factor -1:
-                aux_data[i] = {"begin": aux_data[i-1], "end": aux_data[i-1] + step - num_skipped}
+                last_begin = aux_data[i-1]["begin"]
+                aux_data[i] = {"begin": last_begin, "end": last_begin + step - num_skipped}
             elif i == self.split_factor-1:
+                last_begin = aux_data[i-1]["begin"]
                 # possibly bigger chunk for last dataset
-                aux_data[i] = {"begin": aux_data[i-1], "end": aux_data[i-1] + data_len - i*step - num_skipped}
+                aux_data[i] = {"begin": last_begin, "end": last_begin + data_len - i*step - num_skipped}
                 
             torch.save(data_list, osp.join(self.processed_dir, self.processed_file_names[i]))
             
@@ -360,7 +362,6 @@ def get_molecule_and_coordinates(smile: str, seed:int, add_hydrogen: bool) ->  T
     return m, pos    
 
 
-@dask.delayed
 def smiles_to_graph(smile:str, y:torch.tensor, idx: int, seed:int, add_hydrogen:bool, pre_transform: Callable, pre_filter:Callable) -> Data:
     
     ## 2. ETKDG seeded method 3D coordinate generation
