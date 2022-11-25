@@ -124,12 +124,10 @@ class QM9Dataset(Dataset):
         if add_hydrogen:
             p=pathlib.Path(self.root)
             self.root = f"{str(p.parent)}/{p.stem}_hydrogen"
-        self.raw_dir = f"{self.root}/raw"
-        self.processed_dir= f"{self.root}/processed"
-        os.makedirs(self.raw_dir, exist_ok=True)
-        os.makedirs(self.processed_dir, exist_ok=True)
+        os.makedirs(f"{self.root}/raw", exist_ok=True)
+        os.makedirs(f"{self.root}/processed", exist_ok=True)
         
-        super().__init__(root, transform, pre_transform, pre_filter)
+        super().__init__(self.root, transform, pre_transform, pre_filter)
         
         
     @property
