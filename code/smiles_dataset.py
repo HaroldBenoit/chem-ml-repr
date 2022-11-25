@@ -16,7 +16,8 @@ import pandas as pd
 
 from torch_geometric.data import (
     Data,
-    InMemoryDataset)
+    InMemoryDataset,
+    Dataset)
 
 ## parallelization
 import os
@@ -24,7 +25,149 @@ import dask
 dask.config.set(scheduler="processes")
 from dask.distributed import Client, LocalCluster
 
-class SmilesDataset(InMemoryDataset):
+class SmilesBigDataset(Dataset):
+    """ Dataset class to go from (smiles,target) data format to (graph data, target) data format,
+    Implemented as a Pytorch Geometric Dataset for ease of use.
+    Hyper-parallelized using Dask, beware."""
+    
+    
+    def __init__(self, root: str, filename:str, add_hydrogen=False, seed=0x00ffd, begin_index:int=0, end_index:int = -1, on_cluster:bool = False, transform: Optional[Callable] = None,
+                 pre_transform: Optional[Callable] = None,
+                 pre_filter: Optional[Callable] = None):
+        """
+q
+        Args:
+            root (str): root directory where the raw data can be found and where the processed data will be stored
+            filename (str): csv filename of the dataset
+            add_hydrogen (bool, optional): If True, hydrogen atoms will be part of the description of the molecules. Defaults to False.
+            seed (hexadecimal, optional): seed for randomness, relevant for 3D coordinates generation. Defaults to 0x00ffd.
+            begin_index (int, optional): beginning index of the processing in the raw data. Defaults to 0 (beginning of the data)
+            end_index (int, optional): end index of the processing in the raw data. Defaults to -1 (end of the data)
+            
+            transform (callable, optional): A function/transform that takes in an
+                :obj:`torch_geometric.data.Data` object and returns a transformed
+                version. The data object will be transformed before every access.
+                (default: :obj:`None`)
+            pre_transform (callable, optional): A function/transform that takes in
+                an :obj:`torch_geometric.data.Data` object and returns a
+                transformed version. The data object will be transformed before
+                being saved to disk. (default: :obj:`None`)
+            pre_filter (callable, optional): A function that takes in an
+                :obj:`torch_geometric.data.Data` object and returns a boolean
+                value, indicating whether the data object should be included in the
+                final dataset. (default: :obj:`None`)
+        """
+        self.add_hydrogen = add_hydrogen
+        self.begin_index = begin_index
+        self.end_index = end_index
+        self.seed = seed
+        self.on_cluster = on_cluster
+        self.raw_file_names = filename
+        self.split_factor = 50
+        
+        super().__init__(root, transform, pre_transform, pre_filter)
+
+        self.data, self.slices = torch.load(self.processed_paths[0])
+
+    @property
+    def raw_file_names(self) -> List[str]:
+        try:
+            import rdkit
+            return [self.__raw_file_names] 
+        except ImportError:
+            print("rdkit needs to be installed!")
+            return []
+        
+    @raw_file_names.setter
+    def raw_file_names(self,value) -> None:
+        self.__raw_file_names= value
+
+    @property
+    def processed_file_names(self) -> str:
+        #extracting the file name
+        path = pathlib.Path(self.__raw_file_names)
+        stem = path.stem 
+        return [f"{stem}_{i}.pt" for i in range(self.split_factor)]
+
+    def download(self):
+        pass
+
+    def process(self):
+        """ Full processing procedure for the raw csv dataset. 
+        
+            1. Read the csv file,excepts a single columns of smiles string, the rest is considered as a target
+            For each row:
+                2. ETKDG seeded method 3D coordinate generation
+                3. QM9 featurization of nodes
+                4. Create the complete graph (no self-loops) with covalent bond types as edge attributes
+                
+            5. Bundle everything into the Data (graph) type
+        """
+        
+        #1. Read the csv file,excepts a single columns of smiles string, the rest is considered as a target
+        df = pd.read_csv(self.raw_paths[0],index_col=0, encoding="utf-8")
+        target = torch.tensor(df.values)
+        
+        if self.begin_index < 0 or self.begin_index >= len(df):
+            raise ValueError(f"begin index value: {self.begin_index} is out of bounds [0, {len(df) -1}]")
+
+        if abs(self.end_index) >= len(df):
+            raise ValueError(f"end index value: {self.end_index} is out of bounds [-{len(df) -1}], {len(df) -1}]")
+            
+        ## translate back from negative indexing to postive indexing
+        if self.end_index < 0:
+            self.end_index= len(df) + self.end_index + 1
+            
+
+        # dashboard: http://127.0.0.1:8787/status
+        # setting up the local cluster not to overuse all the cores
+        #cpu_count = os.cpu_count()
+        #usable_cores = cpu_count//2
+        #num_threads_per_worker = max(4, usable_cores//2)
+        #n_workers = usable_cores // num_threads_per_worker
+        dask.config.set({'distributed.comm.timeouts.connect': 60, 'distributed.comm.timeouts.tcp': 60, 'distributed.client.heartbeat':10})
+        
+        if self.on_cluster:
+            cluster = LocalCluster(n_workers=5, threads_per_worker=2, memory_limit=12e9)
+        else:
+            cluster = LocalCluster(n_workers=3, threads_per_worker=1, memory_limit=1e9)
+            
+        client = Client(cluster)
+        
+        
+        ## counting the number of failed 3D generations
+        failed_counter = 0
+        data_list = []
+        # iterating over the given range
+        data_len = len(df.index[self.begin_index: self.end_index])
+        indexes = list(range(self.begin_index, self.end_index))
+        
+        
+        split_factor = 200
+        step = data_len//split_factor
+        final_data_list=[]
+        
+        for i in tqdm(range(self.begin_index, self.end_index, step)):
+            
+            ## making sure we're not out-of-bounds at the beginning
+            indexes = range(i, min(i+step, self.end_index))
+            allpromises = [smiles_to_graph(smile=df.index[idx], y=target[idx].unsqueeze(0), idx=idx,
+                                           seed=self.seed, add_hydrogen=self.add_hydrogen, pre_transform=self.pre_transform, pre_filter=self.pre_filter) for idx in indexes]        
+            data_list = dask.compute(allpromises)[0]
+            curr_len = len(data_list)
+            data_list= [data for data in data_list if data is not None]
+            new_len = len(data_list)
+            failed_counter += curr_len - new_len
+            final_data_list = final_data_list + data_list
+            
+        print(f"NUM MOLECULES SKIPPED {failed_counter}, {failed_counter/(data_len):.2f}% of the data")
+            
+                   
+        torch.save(self.collate(final_data_list), self.processed_paths[0])
+        
+        
+        
+class SmilesInMemoryDataset(InMemoryDataset):
     """ Dataset class to go from (smiles,target) data format to (graph data, target) data format,
     Implemented as a Pytorch Geometric InMemoryDataset for ease of use.
     Hyper-parallelized using Dask, beware."""
@@ -114,68 +257,28 @@ q
         ## translate back from negative indexing to postive indexing
         if self.end_index < 0:
             self.end_index= len(df) + self.end_index + 1
-            
+        
 
-        # dashboard: http://127.0.0.1:8787/status
-        # setting up the local cluster not to overuse all the cores
-        #cpu_count = os.cpu_count()
-        #usable_cores = cpu_count//2
-        #num_threads_per_worker = max(4, usable_cores//2)
-        #n_workers = usable_cores // num_threads_per_worker
-        dask.config.set({'distributed.comm.timeouts.connect': 60, 'distributed.comm.timeouts.tcp': 60, 'distributed.client.heartbeat':10})
-        
-        if self.on_cluster:
-            cluster = LocalCluster(n_workers=5, threads_per_worker=2, memory_limit=12e9)
-        else:
-            cluster = LocalCluster(n_workers=3, threads_per_worker=1, memory_limit=1e9)
-            
-        client = Client(cluster)
-        
-        
-        ## counting the number of failed 3D generations
-        failed_counter = 0
         data_list = []
         # iterating over the given range
         data_len = len(df.index[self.begin_index: self.end_index])
         indexes = list(range(self.begin_index, self.end_index))
         
-        
-        split_factor = 200
-        step = data_len//split_factor
-        final_data_list=[]
-        
-        for i in tqdm(range(self.begin_index, self.end_index, step)):
-            
-            ## making sure we're not out-of-bounds at the beginning
-            indexes = range(i, min(i+step, self.end_index))
-            allpromises = [smiles_to_graph(smile=df.index[idx], y=target[idx].unsqueeze(0), idx=idx,
-                                           seed=self.seed, add_hydrogen=self.add_hydrogen, pre_transform=self.pre_transform, pre_filter=self.pre_filter) for idx in indexes]        
-            data_list = dask.compute(allpromises)[0]
-            curr_len = len(data_list)
-            data_list= [data for data in data_list if data is not None]
-            new_len = len(data_list)
-            failed_counter += curr_len - new_len
-            final_data_list = final_data_list + data_list
-            
-            
-    
-        #for idx in tqdm(indexes):
-        #    
-        #    smile = df.index[idx]
-        #    y = target[idx].unsqueeze(0)
-        #    data = self.smiles_to_graph(smile=smile, y=y,idx=idx)
-        #    
-        #    if smile is None:
-        #        failed_counter+=1
-        #    else:
-        #        data_list.append(data)
-            
+
+        allpromises = [smiles_to_graph(smile=df.index[idx], y=target[idx].unsqueeze(0), idx=idx,
+                                       seed=self.seed, add_hydrogen=self.add_hydrogen, pre_transform=self.pre_transform, pre_filter=self.pre_filter) for idx in indexes]        
+        data_list = dask.compute(allpromises)[0]
+        curr_len = len(data_list)
+        data_list= [data for data in data_list if data is not None]
+        new_len = len(data_list)
+        # counting the number of failed generations
+        failed_counter = curr_len - new_len
             
         print(f"NUM MOLECULES SKIPPED {failed_counter}, {failed_counter/(data_len):.2f}% of the data")
             
                    
-        torch.save(self.collate(final_data_list), self.processed_paths[0])
-        
+        torch.save(self.collate(data_list), self.processed_paths[0])
+            
         
 
 def get_molecule_and_coordinates(smile: str, seed:int, add_hydrogen: bool) ->  Tuple[Chem.rdchem.Mol, torch.Tensor]:

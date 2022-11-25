@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
-from smiles_dataset import SmilesDataset
+from smiles_dataset import SmilesInMemoryDataset
 from typing import Optional, Callable
 import os
 from torch_geometric.data import (
@@ -14,6 +14,8 @@ import argparse
 
 
 class Datasets():
+    
+    BIG_DATASETS={"qm9":True, "bace":False, "bbbp":False}
     
     def __init__(self, root: str, add_hydrogen=False, seed=0x00ffd) -> None:
         self.root = root
@@ -72,6 +74,27 @@ class Datasets():
         root, target_names = self.download_dataset(root=self.root, filename=filename, raw_url=raw_url, target_columns=QM9_TASKS,
                                               smiles_column_name="smiles", add_hydrogen=self.add_hydrogen)
         return root, filename, target_names
+    
+    @property
+    def raw_file_names(self) -> List[str]:
+        try:
+            import rdkit
+            return [self.__raw_file_names] 
+        except ImportError:
+            print("rdkit needs to be installed!")
+            return []
+        
+    @raw_file_names.setter
+    def raw_file_names(self,value) -> None:
+        self.__raw_file_names= value
+
+    @property
+    def processed_file_names(self) -> str:
+        #extracting the file name
+        path = pathlib.Path(self.__raw_file_names)
+        stem = path.stem 
+        return [f"{stem}_{i}.pt" for i in range(self.split_factor)]
+
 
 
     def BaceDataset(self) -> Tuple[str,str, List[str]]:
@@ -184,7 +207,10 @@ def main():
     if args.dataset in datasets.datasets_func:
         root, filename, target_names = datasets.datasets_func[args.dataset]()
         #forcing processing of dataset by calling it
-        _ = SmilesDataset(root=root, filename=filename, add_hydrogen=args.hydrogen, seed=args.seed, begin_index=args.begin, end_index=args.end, on_cluster=args.cluster)
+        if not(Datasets.BIG_DATASETS[args.dataset]):
+            _ = SmilesInMemoryDataset(root=root, filename=filename, add_hydrogen=args.hydrogen, seed=args.seed, begin_index=args.begin, end_index=args.end, on_cluster=args.cluster)
+        else:
+            _ = 
         print(f"Available targets for {args.dataset} are: {target_names}")
     else:
         raise ValueError(f"Given dataset name {args.dataset} is not in the list of available datasets {list(datasets.datasets_func.keys())}")
