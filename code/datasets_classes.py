@@ -86,7 +86,7 @@ class QM9Dataset(Dataset):
     https://figshare.com/articles/Atomref%3A_Reference_thermochemical_energies_of_H%2C_C%2C_N%2C_O%2C_F_atoms./1057643
     """
 
-    def __init__(self, root: str, filename:str, add_hydrogen=False, seed=0x00ffd, on_cluster:bool = False, transform: Optional[Callable] = None,
+    def __init__(self, root: str, add_hydrogen=False, seed=0x00ffd, on_cluster:bool = False, transform: Optional[Callable] = None,
                  pre_transform: Optional[Callable] = None,
                  pre_filter: Optional[Callable] = None):
         """
@@ -119,7 +119,6 @@ class QM9Dataset(Dataset):
         self.add_hydrogen = add_hydrogen
         self.seed = seed
         self.on_cluster = on_cluster
-        self.raw_file_names = filename
         self.split_factor = 50
         
         if add_hydrogen:
