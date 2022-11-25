@@ -90,7 +90,7 @@ class QM9Dataset(Dataset):
                  pre_transform: Optional[Callable] = None,
                  pre_filter: Optional[Callable] = None):
         """
-q
+
         Args:
             root (str): root directory where the raw data can be found and where the processed data will be stored
             filename (str): csv filename of the dataset
@@ -440,24 +440,23 @@ def main():
     parser.add_argument('--root', help="path to the root directory where the raw and processed data will be stored")
     parser.add_argument('--hydrogen', action='store_true', help="If flag specified, hydrogens are explicitly described in graph representation.")
     parser.add_argument('--seed', default=0x00ffd, type=int, help="seed for randomness")
-    parser.add_argument('--begin', default=0, type=int, help="beginning index in the raw data to specify the starting point of processing")
-    parser.add_argument('--end', default=-1, type=int, help="beginning index in the raw data to specify the starting point of processing")
     parser.add_argument('--cluster',action='store_true', help="If flag specified, expects to run on lts2gdk0" )
     args = parser.parse_args()
 
-    datasets = Datasets(root=args.root, add_hydrogen=args.hydrogen, seed=args.seed)
+    datasets = QM9Dataset(root=args.root, add_hydrogen=args.hydrogen, seed=args.seed, on_cluster=args.cluster)
+    
 
 
-    if args.dataset in datasets.datasets_func:
-        root, filename, target_names = datasets.datasets_func[args.dataset]()
-        #forcing processing of dataset by calling it
-        if not(Datasets.BIG_DATASETS[args.dataset]):
-            _ = SmilesInMemoryDataset(root=root, filename=filename, add_hydrogen=args.hydrogen, seed=args.seed, begin_index=args.begin, end_index=args.end, on_cluster=args.cluster)
-        else:
-            _ = 
-        print(f"Available targets for {args.dataset} are: {target_names}")
-    else:
-        raise ValueError(f"Given dataset name {args.dataset} is not in the list of available datasets {list(datasets.datasets_func.keys())}")
+    #if args.dataset in datasets.datasets_func:
+    #    root, filename, target_names = datasets.datasets_func[args.dataset]()
+    #    #forcing processing of dataset by calling it
+    #    if not(Datasets.BIG_DATASETS[args.dataset]):
+    #        _ = SmilesInMemoryDataset(root=root, filename=filename, add_hydrogen=args.hydrogen, seed=args.seed, begin_index=args.begin, end_index=args.end, on_cluster=args.cluster)
+    #    else:
+    #        _ = 
+    #    print(f"Available targets for {args.dataset} are: {target_names}")
+    #else:
+    #    raise ValueError(f"Given dataset name {args.dataset} is not in the list of available datasets {list(datasets.datasets_func.keys())}")
         
 
 if __name__=="__main__":
