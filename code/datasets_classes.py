@@ -85,6 +85,10 @@ class QM9Dataset(Dataset):
     atoms in the molecules, as given in
     https://figshare.com/articles/Atomref%3A_Reference_thermochemical_energies_of_H%2C_C%2C_N%2C_O%2C_F_atoms./1057643
     """
+    
+    
+    target_names = ["mu", "alpha", "homo", "lumo", "gap", "r2", "zpve", "cv", "u0", "u298","h298", "g298"]
+    
 
     def __init__(self, root: str, add_hydrogen=False, seed=0x00ffd, on_cluster:bool = False, transform: Optional[Callable] = None,
                  pre_transform: Optional[Callable] = None,
@@ -111,9 +115,6 @@ class QM9Dataset(Dataset):
                 final dataset. (default: :obj:`None`)
         """
         self.root = root
-        self.QM9_TASKS = [
-        "mu", "alpha", "homo", "lumo", "gap", "r2", "zpve", "cv", "u0", "u298",
-        "h298", "g298"]  
         self.filename="qm9.csv"
         self.raw_url= 'https://deepchemdata.s3-us-west-1.amazonaws.com/datasets/qm9.csv'
         self.add_hydrogen = add_hydrogen
@@ -149,7 +150,7 @@ class QM9Dataset(Dataset):
 
 
     def download(self):
-        download_dataset(raw_dir=self.raw_dir, filename=self.filename, raw_url=self.raw_url, target_columns=self.QM9_TASKS,
+        download_dataset(raw_dir=self.raw_dir, filename=self.filename, raw_url=self.raw_url, target_columns=QM9Dataset.target_names,
                                               smiles_column_name="smiles")
         
     def process(self):
@@ -219,12 +220,12 @@ class QM9Dataset(Dataset):
             if i == 0:
                 aux_data[0] = {"begin": 0, "end": step - num_skipped}
             elif i > 0 and i < self.split_factor -1:
-                last_begin = aux_data[i-1]["begin"]
-                aux_data[i] = {"begin": last_begin, "end": last_begin + step - num_skipped}
+                last_end = aux_data[i-1]["end"]
+                aux_data[i] = {"begin": last_end, "end": last_end + step - num_skipped}
             elif i == self.split_factor-1:
-                last_begin = aux_data[i-1]["begin"]
+                last_end = aux_data[i-1]["end"]
                 # possibly bigger chunk for last dataset
-                aux_data[i] = {"begin": last_begin, "end": last_begin + data_len - i*step - num_skipped}
+                aux_data[i] = {"begin": last_end, "end": last_end + data_len - i*step - num_skipped}
                 
             torch.save(data_list, osp.join(self.processed_dir, self.processed_file_names[i]))
             
@@ -242,12 +243,21 @@ class QM9Dataset(Dataset):
     def get(self,idx):
         aux_data = torch.load(osp.join(self.processed_dir, "aux_data.pt"))
         old_len = aux_data["old_data_len"]
+        total_num_skipped = aux_data["total_num_skipped"]
+        
+        if idx > (old_len - total_num_skipped) or idx < 0:
+            raise IndexError("Index out of range")
+        
         data_split_idx = -1
         
         for i in range(self.split_factor):
             if idx >= aux_data[i]["begin"] and idx < aux_data[i]["end"]:
                 data_split_idx = i
                 break
+            
+        if data_split_idx == -1:
+            raise IndexError(f"Index couldn't be found in one of the {self.split_factor} data splits")
+        
         path = pathlib.Path(self.filename)
         stem = path.stem 
         data_list = torch.load(osp.join(self.processed_dir,f"{stem}_{data_split_idx}.pt"))

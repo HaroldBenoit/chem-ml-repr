@@ -16,7 +16,7 @@ from typing import List, Callable
 from functools import partial
 from smiles_dataset import SmilesInMemoryDataset
 from torch_geometric.transforms import Compose, distance
-from datasets import Datasets
+from datasets_classes import QM9Dataset
 import wandb
 import pdb
 import argparse
@@ -30,11 +30,11 @@ def main():
     debug= args.debug
 
     ## dataset
-    root= "../data/bace"
-    filename="bace.csv"
-    target='Class'
+    root= "../data/qm9"
+    filename="qm9.csv"
+    target='u0'
     hydrogen=False
-    classification=True
+    classification=False
     output_dim = 2 if classification else 1
     seed=42
     
@@ -46,28 +46,23 @@ def main():
     
     ## training
     project="test-project"
-    run_name="test-run-30-epochs"
-    num_epochs=30
+    run_name="test-qm9"
+    num_epochs=1
     # (int) log things every N batches
     log_freq=3
     accelerator="gpu"
-    devices = [3]
+    devices = [0]
     
-    # only calling to get target_names, could be made clearer
-    if "bace" in filename:
-        root, filename, target_names = Datasets(root=root, add_hydrogen=hydrogen, seed=seed).BaceDataset()
-    elif "qm9" in filename:
-        root, filename, target_names  = Datasets(root=root, add_hydrogen=hydrogen, seed=seed).QM9Dataset()
-    elif "bbbp" in filename:
-        root, filename, target_names  = Datasets(root=root, add_hydrogen=hydrogen, seed=seed).BBBPDataset()
-
     
     if debug:
         pdb.set_trace(header="Before dataset transform")
     
     # filtering out irrelevant target and computing euclidean distances between each vertices
-    transforms=Compose([filter_target(target_names=target_names, target='Class'), distance.Distance()])
-    dataset = SmilesInMemoryDataset(root=root,filename="bace.csv", add_hydrogen=hydrogen, seed=seed,transform=transforms)
+    
+    if "qm9" in filename:
+        transforms=Compose([filter_target(target_names=QM9Dataset.target_names, target=target), distance.Distance()])
+        dataset = QM9Dataset(root=root, add_hydrogen=hydrogen, seed=seed,transform=transforms)
+        
 
     if debug:
         pdb.set_trace(header="After dataset transform")
