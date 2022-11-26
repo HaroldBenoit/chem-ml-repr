@@ -192,8 +192,8 @@ class QM9Dataset(Dataset):
         data_list = []
         # iterating over the given range
         data_len = len(df)
-        step = data_len//self.split_factor
-                
+        step = data_len//self.split_factor 
+
         ## necessary data to log so that we can tell which idx data goes into which split at which point
         aux_data = {"old_data_len":len(df), "step": step, }
         

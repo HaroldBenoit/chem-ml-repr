@@ -97,11 +97,11 @@ class LightningClassicGNN(pl.LightningModule):
             label = batch.y
             accuracy = (pred ==label).sum() / pred.shape[0]
 
-            self.log("loss/train", loss, batch_size=batch_size)
-            self.log("accuracy/train", accuracy, batch_size=batch_size)
+            self.log("loss/train", loss, batch_size=batch_size, on_epoch=True)
+            self.log("accuracy/train", accuracy, batch_size=batch_size, on_epoch=True)
         else:
             loss= F.l1_loss(x_out,batch.y)
-            self.log("loss/train", loss, batch_size=batch_size)
+            self.log("loss/train", loss, batch_size=batch_size, on_epoch=True)
             
         
         return loss
@@ -122,14 +122,14 @@ class LightningClassicGNN(pl.LightningModule):
             label = batch.y
             accuracy = (pred ==label).sum() / pred.shape[0]
 
-            self.log("loss/valid", loss, batch_size=batch_size)
-            self.log("accuracy/valid", accuracy,batch_size=batch_size)
+            self.log("loss/valid", loss, batch_size=batch_size, on_epoch=True, sync_dist=True)
+            self.log("accuracy/valid", accuracy,batch_size=batch_size, on_epoch=True, sync_dist=True)
             
             return x_out, pred, batch.y
         else:
             
             loss= F.l1_loss(x_out,batch.y)
-            self.log("loss/valid", loss, batch_size=batch_size)
+            self.log("loss/valid", loss, batch_size=batch_size, on_epoch=True, sync_dist=True)
             return x_out, batch.y
     
     

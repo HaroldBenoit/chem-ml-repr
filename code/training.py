@@ -3,6 +3,7 @@ from smiles_lightning_data_module import SmilesDataModule
 from lightning_model import LightningClassicGNN
 import pytorch_lightning as pl
 from pytorch_lightning.loggers import WandbLogger
+from pytorch_lightning.callbacks.early_stopping import EarlyStopping
 from torch_geometric.transforms import distance
 from torch_geometric.loader import DataLoader
 import os
@@ -25,6 +26,9 @@ def main():
     
     parser = argparse.ArgumentParser(prog="Training", description="Training pipeline")
     parser.add_argument('--debug', action='store_true', help="If flag specified, activate breakpoints in the script")
+    parser.add_argument('--cluster', action='store_true' ,help="If flag specified, we are training on the cluster")
+    parser.add_argument('--hydrogen', action='store_true' ,help="If flag specified, we are using the hydrogen dataset")
+    parser.add_argument('--checkpoint', help="Path to the checkpoint of the model (ends with .ckpt). Defaults to None")
     args = parser.parse_args()
 
     debug= args.debug
@@ -33,7 +37,6 @@ def main():
     root= "../data/qm9"
     filename="qm9.csv"
     target='u0'
-    hydrogen=False
     classification=False
     output_dim = 2 if classification else 1
     seed=42
@@ -45,24 +48,29 @@ def main():
     pl.seed_everything(seed=seed, workers=True)
     
     ## training
-    project="qm9-project"
-    run_name="test-qm9-1-no-hydrogen"
+
     num_epochs=100
     # (int) log things every N batches
-    log_freq=3
+    log_freq=1
     accelerator="gpu"
 	#good devices are 0,1,2,3 on the cluster
-    devices = [0,1,3]
+    if args.cluster:
+        devices = [0,1,3]
+    else:
+        devices = [0]
     
     
     if debug:
         pdb.set_trace(header="Before dataset transform")
     
-    # filtering out irrelevant target and computing euclidean distances between each vertices
-    
+    ## setting up wandb run names and loading correct dataset    
     if "qm9" in filename:
+        project="qm9-project"
+        run_name=f"target_{target}" if not(args.hydrogen) else f"target_{target}_hydrogen"
+        
+        # filtering out irrelevant target and computing euclidean distances between each vertices
         transforms=Compose([filter_target(target_names=QM9Dataset.target_names, target=target), distance.Distance()])
-        dataset = QM9Dataset(root=root, add_hydrogen=hydrogen, seed=seed,transform=transforms)
+        dataset = QM9Dataset(root=root, add_hydrogen=args.hydrogen, seed=seed,transform=transforms)
         
 
     if debug:
@@ -74,15 +82,22 @@ def main():
     num_node_features = data_module.num_node_features
     num_edge_features= data_module.num_edge_features
     
-    gnn_model = LightningClassicGNN(classification=classification, output_dim=output_dim, dropout_p=dropout_p,num_hidden_features=num_hidden_features,  num_node_features=num_node_features, num_edge_features=num_edge_features)
+    gnn_model = LightningClassicGNN(classification=classification, output_dim=output_dim, dropout_p=dropout_p,
+                                    num_hidden_features=num_hidden_features,  num_node_features=num_node_features, num_edge_features=num_edge_features)
     
     
     #docs: https://pytorch-lightning.readthedocs.io/en/stable/extensions/generated/pytorch_lightning.loggers.WandbLogger.html#pytorch_lightning.loggers.WandbLogger
     wandb_logger = WandbLogger(save_dir="../training_artifacts/", log_model=True, project=project, name=run_name, id=run_name)
     ## log histograms of gradients and parameters
-    # wandb_logger.watch(gnn_model, log_freq=log_freq)
+    wandb_logger.watch(gnn_model, log_freq=log_freq)
+    
+    ## setting up the trainer
+    strategy = "ddp" if args.cluster else None
+    ## creating early stop callback to ensure we don't overfit
+    early_stop_callback = EarlyStopping(monitor="loss/valid", mode="min", patience=10, min_delta=0.00)
+    
     trainer = pl.Trainer(logger=wandb_logger, deterministic=False, default_root_dir="../training_artifacts/", precision=16,
-	 strategy="ddp",max_epochs=num_epochs, log_every_n_steps=log_freq, devices=devices, accelerator=accelerator)
+	 strategy=strategy,max_epochs=num_epochs, log_every_n_steps=log_freq, devices=devices, accelerator=accelerator, callbacks=[early_stop_callback])
 
     # strategy="ddp"   
     
@@ -93,7 +108,7 @@ def main():
     #trainer.tune(gnn_model,datamodule=data_module)
     
     # we can resume from a checkpoint using trainer.fit(ckpth_path="some/path/to/my_checkpoint.ckpt")
-    trainer.fit(gnn_model, datamodule=data_module)
+    trainer.fit(gnn_model, datamodule=data_module, ckpt_path=args.checkpoint)
     
     if debug:
         pdb.set_trace(header="After trainer fit")
