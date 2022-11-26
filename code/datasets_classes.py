@@ -109,9 +109,7 @@ class QM9Dataset(Dataset):
                 an :obj:`torch_geometric.data.Data` object and returns a
                 transformed version. The data object will be transformed before
                 being saved to disk. (default: :obj:`None`)
-            pre_filter (callable, optional): A function that takes in an
-                :obj:`torch_geometric.data.Data` object and returns a boolean
-                value, indicating whether the data object should be included in the
+            pre_filter (callable, optional): A function indicating whether the data object should be included in the
                 final dataset. (default: :obj:`None`)
         """
         self.root = root
