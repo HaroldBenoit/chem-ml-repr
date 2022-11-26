@@ -39,19 +39,20 @@ def main():
     seed=42
     
     ## model
-    num_hidden_features=32
+    num_hidden_features=256
     dropout_p = 0.0
     ## pytorch lighting takes of seeding everything
     pl.seed_everything(seed=seed, workers=True)
     
     ## training
-    project="test-project"
-    run_name="test-qm9"
-    num_epochs=1
+    project="qm9-project"
+    run_name="test-qm9-1-no-hydrogen"
+    num_epochs=100
     # (int) log things every N batches
     log_freq=3
     accelerator="gpu"
-    devices = [0]
+	#good devices are 0,1,2,3 on the cluster
+    devices = [0,1,3]
     
     
     if debug:
@@ -77,11 +78,11 @@ def main():
     
     
     #docs: https://pytorch-lightning.readthedocs.io/en/stable/extensions/generated/pytorch_lightning.loggers.WandbLogger.html#pytorch_lightning.loggers.WandbLogger
-    wandb_logger = WandbLogger(save_dir="../training_artifacts/", log_model=True, project=project, name=run_name)
+    wandb_logger = WandbLogger(save_dir="../training_artifacts/", log_model=True, project=project, name=run_name, id=run_name)
     ## log histograms of gradients and parameters
     # wandb_logger.watch(gnn_model, log_freq=log_freq)
     trainer = pl.Trainer(logger=wandb_logger, deterministic=False, default_root_dir="../training_artifacts/", precision=16,
-	 max_epochs=num_epochs, log_every_n_steps=log_freq, devices=devices, accelerator=accelerator)
+	 strategy="ddp",max_epochs=num_epochs, log_every_n_steps=log_freq, devices=devices, accelerator=accelerator)
 
     # strategy="ddp"   
     
