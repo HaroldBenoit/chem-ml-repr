@@ -1,10 +1,7 @@
-import time
 import numpy as np
 import torch
-from torch.nn import Dropout, Linear, ReLU, PReLU
-import torch_geometric
-from torch_geometric.datasets import TUDataset, GNNBenchmarkDataset
-from torch_geometric.loader import DataLoader
+from torch.nn import Dropout, Linear,PReLU
+
 from torch_geometric.nn import GeneralConv, Sequential, global_add_pool, BatchNorm
 
 from typing import Any
@@ -23,7 +20,7 @@ class LightningClassicGNN(pl.LightningModule):
 
     """
     
-    def __init__(self, classification = True, num_hidden_features=256, dropout_p=0.0, learning_rate=0.01, num_message_passing_layers=4, **kwargs: Any) -> None:
+    def __init__(self, seed:int, classification = True, num_hidden_features=256, dropout_p=0.0, learning_rate=0.01, num_message_passing_layers=4 , **kwargs: Any) -> None:
         super(LightningClassicGNN,self).__init__()
         self.save_hyperparameters()
         
@@ -48,6 +45,9 @@ class LightningClassicGNN(pl.LightningModule):
         self.dropout_p = dropout_p
         self.learning_rate = learning_rate
         self.num_message_passing_layers= num_message_passing_layers
+        self.seed = seed
+        pl.seed_everything(seed=seed, workers=True)
+
         
         # how to build layers: function header definition i.e. input args and return: "arg1, arg2 -> return_type"
         

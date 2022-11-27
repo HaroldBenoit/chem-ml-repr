@@ -29,6 +29,7 @@ def main():
     parser.add_argument('--cluster', action='store_true' ,help="If flag specified, we are training on the cluster")
     parser.add_argument('--hydrogen', action='store_true' ,help="If flag specified, we are using the hydrogen dataset")
     parser.add_argument('--checkpoint', help="Path to the checkpoint of the model (ends with .ckpt). Defaults to None")
+    parser.add_argument('--target', required=True)
     args = parser.parse_args()
 
     debug= args.debug
@@ -36,7 +37,7 @@ def main():
     ## dataset
     root= "../data/qm9"
     filename="qm9.csv"
-    target='u0'
+    target=args.target
     classification=False
     output_dim = 2 if classification else 1
     seed=42
@@ -82,7 +83,7 @@ def main():
     num_node_features = data_module.num_node_features
     num_edge_features= data_module.num_edge_features
     
-    gnn_model = LightningClassicGNN(classification=classification, output_dim=output_dim, dropout_p=dropout_p,
+    gnn_model = LightningClassicGNN(seed=seed, classification=classification, output_dim=output_dim, dropout_p=dropout_p,
                                     num_hidden_features=num_hidden_features,  num_node_features=num_node_features, num_edge_features=num_edge_features)
     
     
@@ -94,10 +95,10 @@ def main():
     ## setting up the trainer
     strategy = "ddp" if args.cluster else None
     ## creating early stop callback to ensure we don't overfit
-    early_stop_callback = EarlyStopping(monitor="loss/valid", mode="min", patience=10, min_delta=0.00)
+    early_stop_callback = EarlyStopping(monitor="loss/valid", mode="min", patience=num_epochs//2, min_delta=0.00)
     
     trainer = pl.Trainer(logger=wandb_logger, deterministic=False, default_root_dir="../training_artifacts/", precision=16,
-	 strategy=strategy,max_epochs=num_epochs, log_every_n_steps=log_freq, devices=devices, accelerator=accelerator, callbacks=[early_stop_callback])
+	 strategy=strategy,max_epochs=num_epochs, auto_lr_find=True ,log_every_n_steps=log_freq, devices=devices, accelerator=accelerator, callbacks=[early_stop_callback])
 
     # strategy="ddp"   
     
@@ -105,7 +106,7 @@ def main():
         pdb.set_trace(header="After trainer instantation")
     
     # tune to find the learning rate
-    #trainer.tune(gnn_model,datamodule=data_module)
+    trainer.tune(gnn_model,datamodule=data_module)
     
     # we can resume from a checkpoint using trainer.fit(ckpth_path="some/path/to/my_checkpoint.ckpt")
     trainer.fit(gnn_model, datamodule=data_module, ckpt_path=args.checkpoint)
