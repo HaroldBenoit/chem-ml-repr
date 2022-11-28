@@ -43,7 +43,7 @@ def download_dataset(raw_dir:str, filename:str, raw_url:str, target_columns:List
         col_list=[smiles_column_name]+ target_columns
         df.drop(df.columns.difference(col_list), axis=1, inplace=True)
         df.set_index(smiles_column_name, drop=True, inplace=True)
-        df.to_csv(complete_path)
+        df.to_csv(complete_path, encoding="utf-8")
 
         return 
 

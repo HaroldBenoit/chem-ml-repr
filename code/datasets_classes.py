@@ -12,6 +12,8 @@ import pathlib
 import argparse
 from in_mem_smiles_dataset import InMemorySmilesDataset
 
+from smiles_dataset import SmilesDataset
+
 
 from typing import Callable, List, Optional, Tuple
 import pathlib
@@ -54,7 +56,7 @@ from utils import download_dataset, smiles_to_graph
 
 
 
-class QM9Dataset(Dataset):
+class QM9Dataset(SmilesDataset):
     """Load QM9 dataset
     QM9 is a comprehensive dataset that provides geometric, energetic,
     electronic and thermodynamic properties for a subset of GDB-17
@@ -94,182 +96,17 @@ class QM9Dataset(Dataset):
     
     target_names = ["mu", "alpha", "homo", "lumo", "gap", "r2", "zpve", "cv", "u0", "u298","h298", "g298"]
     
-
-    def __init__(self, root: str, add_hydrogen=False, seed=0x00ffd, on_cluster:bool = False, transform: Optional[Callable] = None,
+    def __init__(self, root: str, add_hydrogen=False, seed=0x00ffd, transform: Optional[Callable] = None,
                  pre_transform: Optional[Callable] = None,
                  pre_filter: Optional[Callable] = None):
-        """
+        
+        filename="qm9.csv"
+        raw_url= 'https://deepchemdata.s3-us-west-1.amazonaws.com/datasets/qm9.csv'
+        smiles_column_name="smiles"
 
-        Args:
-            root (str): root directory where the raw data can be found and where the processed data will be stored
-            filename (str): csv filename of the dataset
-            add_hydrogen (bool, optional): If True, hydrogen atoms will be part of the description of the molecules. Defaults to False.
-            seed (hexadecimal, optional): seed for randomness, relevant for 3D coordinates generation. Defaults to 0x00ffd.
-            
-            transform (callable, optional): A function/transform that takes in an
-                :obj:`torch_geometric.data.Data` object and returns a transformed
-                version. The data object will be transformed before every access.
-                (default: :obj:`None`)
-            pre_transform (callable, optional): A function/transform that takes in
-                an :obj:`torch_geometric.data.Data` object and returns a
-                transformed version. The data object will be transformed before
-                being saved to disk. (default: :obj:`None`)
-            pre_filter (callable, optional): A function indicating whether the data object should be included in the
-                final dataset. (default: :obj:`None`)
-        """
-        self.root = root
-        self.filename="qm9.csv"
-        self.raw_url= 'https://deepchemdata.s3-us-west-1.amazonaws.com/datasets/qm9.csv'
-        self.smiles_column_name="smiles"
-        self.add_hydrogen = add_hydrogen
-        self.seed = seed
-        self.on_cluster = on_cluster
-        self.split_factor = 50
-        
-        if add_hydrogen:
-            p=pathlib.Path(self.root)
-            self.root = f"{str(p.parent)}/{p.stem}_hydrogen"
-        os.makedirs(f"{self.root}/raw", exist_ok=True)
-        os.makedirs(f"{self.root}/processed", exist_ok=True)
-        
-        super().__init__(self.root, transform, pre_transform, pre_filter)
-        
-        
-    @property
-    def raw_file_names(self) -> List[str]:
-        try:
-            import rdkit
-            return [self.filename] 
-        except ImportError:
-            print("rdkit needs to be installed!")
-            return []
-    
+        super().__init__(root=root, filename = filename, raw_url=raw_url, smiles_column_name=smiles_column_name, target_names= QM9Dataset.target_names,
+                     add_hydrogen=add_hydrogen, seed=seed, transform=transform, pre_transform=pre_transform, pre_filter=pre_filter)
 
-    @property
-    def processed_file_names(self) -> str:
-        #extracting the file name
-        path = pathlib.Path(self.filename)
-        stem = path.stem 
-        return [f"{stem}_{i}.pt" for i in range(self.split_factor)]
-
-
-    def download(self):
-        download_dataset(raw_dir=self.raw_dir, filename=self.filename, raw_url=self.raw_url, target_columns=QM9Dataset.target_names,
-                                              smiles_column_name=self.smiles_column_name)
-        
-    def process(self):
-        
-        """ Full processing procedure for the raw csv dataset. 
-        
-            1. Read the csv file,excepts a single columns of smiles string, the rest is considered as a target
-            For each row:
-                2. ETKDG seeded method 3D coordinate generation
-                3. QM9 featurization of nodes
-                4. Create the complete graph (no self-loops) with covalent bond types as edge attributes
-                
-            5. Bundle everything into the Data (graph) type
-        """
-        
-        
-        #1. Read the csv file,excepts a single columns of smiles string, the rest is considered as a target
-        df = pd.read_csv(self.raw_paths[0],index_col=0, encoding="utf-8")
-        target = torch.tensor(df.values)
-    
-
-        # dashboard: http://127.0.0.1:8787/status
-        # setting up the local cluster not to overuse all the cores
-        #cpu_count = os.cpu_count()
-        #usable_cores = cpu_count//2
-        #num_threads_per_worker = max(4, usable_cores//2)
-        #n_workers = usable_cores // num_threads_per_worker
-        #dask.config.set({'distributed.comm.timeouts.connect': 60, 'distributed.comm.timeouts.tcp': 60, 'distributed.client.heartbeat':10})
-        #
-        #if self.on_cluster:
-        #    cluster = LocalCluster(n_workers=5, threads_per_worker=2, memory_limit=12e9)
-        #else:
-        #    cluster = LocalCluster(n_workers=3, threads_per_worker=1, memory_limit=1e9)
-        #    
-        #client = Client(cluster)
-        
-        
-        ## counting the number of failed 3D generations
-        failed_counter = 0
-        data_list = []
-        # iterating over the given range
-        data_len = len(df)
-        step = data_len//self.split_factor 
-
-        ## necessary data to log so that we can tell which idx data goes into which split at which point
-        aux_data = {"old_data_len":len(df), "step": step, }
-        
-        for i in tqdm(range(self.split_factor)):
-            
-            ## making sure we're covering the entire dataset
-            if i != self.split_factor -1:
-                indexes = range(i*step, min((i+1)*step, data_len))
-            else:
-                indexes = range(i*step, data_len)
-            
-            data_list = [smiles_to_graph(smile=df.index[idx], y=target[idx].unsqueeze(0), idx=idx,
-                                           seed=self.seed, add_hydrogen=self.add_hydrogen, pre_transform=self.pre_transform, pre_filter=self.pre_filter) for idx in indexes]        
-            #data_list = client.compute(allpromises)
-            #data_list = client.gather(data_list)
-            
-            ## need to count the number of skipped molecules to be able to give correct index in get()
-            curr_len = len(data_list)
-            data_list= [data for data in data_list if data is not None]
-            new_len = len(data_list)
-            num_skipped= curr_len - new_len
-            failed_counter += num_skipped
-            
-            if i == 0:
-                aux_data[0] = {"begin": 0, "end": step - num_skipped}
-            elif i > 0 and i < self.split_factor -1:
-                last_end = aux_data[i-1]["end"]
-                aux_data[i] = {"begin": last_end, "end": last_end + step - num_skipped}
-            elif i == self.split_factor-1:
-                last_end = aux_data[i-1]["end"]
-                # possibly bigger chunk for last dataset
-                aux_data[i] = {"begin": last_end, "end": last_end + data_len - i*step - num_skipped}
-                
-            torch.save(data_list, osp.join(self.processed_dir, self.processed_file_names[i]))
-            
-        aux_data["total_num_skipped"]= failed_counter
-            
-                   
-        print(f"NUM MOLECULES SKIPPED {failed_counter}, {failed_counter/(data_len):.2f}% of the data")
-            
-        # saving the auxiliary data
-        torch.save(aux_data, osp.join(self.processed_dir, "aux_data.pt"))
-    
-    def len(self):
-        return self.split_factor
-    
-    def get(self,idx):
-        aux_data = torch.load(osp.join(self.processed_dir, "aux_data.pt"))
-        old_len = aux_data["old_data_len"]
-        total_num_skipped = aux_data["total_num_skipped"]
-        
-        if idx > (old_len - total_num_skipped) or idx < 0:
-            raise IndexError("Index out of range")
-        
-        data_split_idx = -1
-        
-        for i in range(self.split_factor):
-            if idx >= aux_data[i]["begin"] and idx < aux_data[i]["end"]:
-                data_split_idx = i
-                break
-            
-        if data_split_idx == -1:
-            raise IndexError(f"Index couldn't be found in one of the {self.split_factor} data splits")
-        
-        path = pathlib.Path(self.filename)
-        stem = path.stem 
-        data_list = torch.load(osp.join(self.processed_dir,f"{stem}_{data_split_idx}.pt"))
-        
-        correct_idx = idx - aux_data[data_split_idx]["begin"]
-        return data_list[correct_idx]
-                
 
 
 class BaceDataset(InMemorySmilesDataset):
@@ -289,7 +126,7 @@ class BaceDataset(InMemorySmilesDataset):
     
     target_names = ['Class','pIC50']
     
-    def __init__(self, root: str, add_hydrogen=False, seed=0x00ffd, on_cluster:bool = False, transform: Optional[Callable] = None,
+    def __init__(self, root: str, add_hydrogen=False, seed=0x00ffd, transform: Optional[Callable] = None,
                  pre_transform: Optional[Callable] = None,
                  pre_filter: Optional[Callable] = None):
         
@@ -299,9 +136,30 @@ class BaceDataset(InMemorySmilesDataset):
         super().__init__(root=root, filename = filename, raw_url=raw_url, smiles_column_name=smiles_column_name, target_names= BaceDataset.target_names,add_hydrogen=add_hydrogen, seed=seed, transform=transform, pre_transform=pre_transform, pre_filter=pre_filter)
         
         
-    
+class FreeSolvDataset(InMemorySmilesDataset):
+    """Load Freesolv dataset
+    The FreeSolv dataset is a collection of experimental and calculated hydration
+    free energies for small molecules in water, along with their experiemental values.
+    Here, we are using a modified version of the dataset with the molecule smile string
+    and the corresponding experimental hydration free energies.
+    Random splitting is recommended for this dataset.
+    The raw data csv file contains columns below:
+    - "smiles" - SMILES representation of the molecular structure
+    - "y" - Experimental hydration free energy
+    """
 
-def BBBPDataset(self) -> Tuple[str, str, List[str]]:
+    target_names = ['y']
+    
+    def __init__(self, root: str, add_hydrogen=False, seed=0x00ffd, transform: Optional[Callable] = None, pre_transform: Optional[Callable] = None, pre_filter: Optional[Callable] = None):
+                
+        filename="freesolv.csv.gz"
+        raw_url= 'https://deepchemdata.s3-us-west-1.amazonaws.com/datasets/freesolv.csv.gz'
+        smiles_column_name="smiles"
+        super().__init__(root=root, filename = filename, raw_url=raw_url, smiles_column_name=smiles_column_name,
+                         target_names= FreeSolvDataset.target_names,add_hydrogen=add_hydrogen, seed=seed, transform=transform, pre_transform=pre_transform, pre_filter=pre_filter)
+        
+
+class BBBPDataset():
     """
     Load BBBP dataset
     The blood-brain barrier penetration (BBBP) dataset is designed for the
@@ -318,12 +176,16 @@ def BBBPDataset(self) -> Tuple[str, str, List[str]]:
     - "smiles" - SMILES representation of the molecular structure
     - "p_np" - Binary labels for penetration/non-penetration
     """ 
-    BBBP_CLASSIFICATION_TASKS = "p_np"    
-    filename="BBBP.csv"
-    raw_url= 'https://deepchemdata.s3-us-west-1.amazonaws.com/datasets/BBBP.csv'
-    root, target_names = self.download_dataset(root=self.root, filename=filename, raw_url=raw_url, target_columns=[BBBP_CLASSIFICATION_TASKS],
-                                          smiles_column_name="smiles", add_hydrogen=self.add_hydrogen)
-    return root, filename, target_names
+
+    target_names = ['p_np']
+    
+    def __init__(self, root: str, add_hydrogen=False, seed=0x00ffd, transform: Optional[Callable] = None, pre_transform: Optional[Callable] = None, pre_filter: Optional[Callable] = None):
+                
+        filename="BBBP.csv"
+        raw_url= 'https://deepchemdata.s3-us-west-1.amazonaws.com/datasets/BBBP.csv'
+        smiles_column_name="smiles"
+        super().__init__(root=root, filename = filename, raw_url=raw_url, smiles_column_name=smiles_column_name,
+                         target_names= FreeSolvDataset.target_names,add_hydrogen=add_hydrogen, seed=seed, transform=transform, pre_transform=pre_transform, pre_filter=pre_filter)
 
 
 
@@ -332,28 +194,27 @@ def BBBPDataset(self) -> Tuple[str, str, List[str]]:
 
 def main():
     
+    dataset_dict= {"qm9": QM9Dataset, "bace":BaceDataset, "bbbp": BBBPDataset, "freesolv":FreeSolvDataset}
+    
     parser = argparse.ArgumentParser(prog="DatasetProcessing", description="Given the dataset name and root path, processes the dataset according to our method")
     parser.add_argument('--dataset', help=f"Name of the dataset to process")
     parser.add_argument('--root', help="path to the root directory where the raw and processed data will be stored")
     parser.add_argument('--hydrogen', action='store_true', help="If flag specified, hydrogens are explicitly described in graph representation.")
     parser.add_argument('--seed', default=0x00ffd, type=int, help="seed for randomness")
-    parser.add_argument('--cluster',action='store_true', help="If flag specified, expects to run on lts2gdk0" )
     args = parser.parse_args()
 
-    datasets = QM9Dataset(root=args.root, add_hydrogen=args.hydrogen, seed=args.seed, on_cluster=args.cluster)
     
 
 
-    #if args.dataset in datasets.datasets_func:
-    #    root, filename, target_names = datasets.datasets_func[args.dataset]()
-    #    #forcing processing of dataset by calling it
-    #    if not(Datasets.BIG_DATASETS[args.dataset]):
-    #        _ = SmilesInMemoryDataset(root=root, filename=filename, add_hydrogen=args.hydrogen, seed=args.seed, begin_index=args.begin, end_index=args.end, on_cluster=args.cluster)
-    #    else:
-    #        _ = 
-    #    print(f"Available targets for {args.dataset} are: {target_names}")
-    #else:
-    #    raise ValueError(f"Given dataset name {args.dataset} is not in the list of available datasets {list(datasets.datasets_func.keys())}")
+    if args.dataset in dataset_dict:
+        dataset_class= dataset_dict[args.dataset]
+        #forcing processing of dataset by calling it
+        dataset = dataset_class(root=args.root, add_hydrogen=args.hydrogen, seed=args.seed)
+
+
+        print(f"Available targets for {args.dataset} are: {dataset_class.target_names}")
+    else:
+        raise ValueError(f"Given dataset name {args.dataset} is not in the list of available datasets {list(dataset_dict.keys())}")
         
 
 if __name__=="__main__":
