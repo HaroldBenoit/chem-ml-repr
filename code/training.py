@@ -98,7 +98,7 @@ def main():
     early_stop_callback = EarlyStopping(monitor="loss/valid", mode="min", patience=num_epochs//2, min_delta=0.00)
     
     trainer = pl.Trainer(logger=wandb_logger, deterministic=False, default_root_dir="../training_artifacts/", precision=16,
-	 strategy=strategy,max_epochs=num_epochs, auto_lr_find=True ,log_every_n_steps=log_freq, devices=devices, accelerator=accelerator, callbacks=[early_stop_callback])
+	 strategy=strategy,max_epochs=num_epochs ,log_every_n_steps=log_freq, devices=devices, accelerator=accelerator, callbacks=[early_stop_callback])
 
     # strategy="ddp"   
     
@@ -106,7 +106,7 @@ def main():
         pdb.set_trace(header="After trainer instantation")
     
     # tune to find the learning rate
-    trainer.tune(gnn_model,datamodule=data_module)
+    #trainer.tune(gnn_model,datamodule=data_module)
     
     # we can resume from a checkpoint using trainer.fit(ckpth_path="some/path/to/my_checkpoint.ckpt")
     trainer.fit(gnn_model, datamodule=data_module, ckpt_path=args.checkpoint)
