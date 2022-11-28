@@ -229,7 +229,7 @@ class BBBPDataset(InMemorySmilesDataset):
 
 
 
-dataset_dict= {"qm9": QM9Dataset, "bace":BaceDataset, "bbbp": BBBPDataset, "freesolv":FreeSolvDataset}
+dataset_dict= {"qm9": QM9Dataset, "bace":BaceDataset, "bbbp": BBBPDataset, "freesolv":FreeSolvDataset, "muv":MUVDataset}
 
 
 def main():
