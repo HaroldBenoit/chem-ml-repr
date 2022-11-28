@@ -45,7 +45,7 @@ from dask.distributed import Client, LocalCluster
 from utils import download_dataset, smiles_to_graph
     
     
-    #def __init__(self, root: str, add_hydrogen=False, seed=0x00ffd) -> None:
+    #def __init__(self, root: str, add_hydrogen=False, seed=GLOBAL_SEED) -> None:
     #    self.root = root
     #    self.add_hydrogen = add_hydrogen
     #    self.seed = seed
@@ -53,7 +53,7 @@ from utils import download_dataset, smiles_to_graph
 
     
 
-
+GLOBAL_SEED=0x00ffd
 
 
 class QM9Dataset(SmilesDataset):
@@ -96,10 +96,12 @@ class QM9Dataset(SmilesDataset):
     
     target_names = ["mu", "alpha", "homo", "lumo", "gap", "r2", "zpve", "cv", "u0", "u298","h298", "g298"]
     
-    def __init__(self, root: str, add_hydrogen=False, seed=0x00ffd, transform: Optional[Callable] = None,
+    def __init__(self, root: str, add_hydrogen=False, seed=GLOBAL_SEED, transform: Optional[Callable] = None,
                  pre_transform: Optional[Callable] = None,
                  pre_filter: Optional[Callable] = None):
         
+        filename="muv.csv.gz"
+        raw_url= "https://deepchemdata.s3-us-west-1.amazonaws.com/datasets/muv.csv.gz"
         filename="qm9.csv"
         raw_url= 'https://deepchemdata.s3-us-west-1.amazonaws.com/datasets/qm9.csv'
         smiles_column_name="smiles"
@@ -108,6 +110,34 @@ class QM9Dataset(SmilesDataset):
                      add_hydrogen=add_hydrogen, seed=seed, transform=transform, pre_transform=pre_transform, pre_filter=pre_filter)
 
 
+
+class MUVDataset(SmilesDataset):
+    """Load MUV dataset
+    The Maximum Unbiased Validation (MUV) group is a benchmark dataset selected
+    from PubChem BioAssay by applying a refined nearest neighbor analysis.
+    The MUV dataset contains 17 challenging tasks for around 90 thousand
+    compounds and is specifically designed for validation of virtual screening
+    techniques.
+    Scaffold splitting is recommended for this dataset.
+    The raw data csv file contains columns below:
+    - "mol_id" - PubChem CID of the compound
+    - "smiles" - SMILES representation of the molecular structure
+    - "MUV-XXX" - Measured results (Active/Inactive) for bioassays
+    """
+    
+    target_names = ['MUV-466', 'MUV-548', 'MUV-600', 'MUV-644', 'MUV-652', 'MUV-689', 'MUV-692', 'MUV-712', 'MUV-713', 'MUV-733', 'MUV-737', 'MUV-810', 'MUV-832', 'MUV-846', 'MUV-852', 'MUV-858', 'MUV-859']
+    
+    def __init__(self, root: str, add_hydrogen=False, seed=GLOBAL_SEED, transform: Optional[Callable] = None,
+                 pre_transform: Optional[Callable] = None,
+                 pre_filter: Optional[Callable] = None):
+        
+        filename="muv.csv.gz"
+        raw_url= "https://deepchemdata.s3-us-west-1.amazonaws.com/datasets/muv.csv.gz"
+        smiles_column_name="smiles"
+
+        super().__init__(root=root, filename = filename, raw_url=raw_url, smiles_column_name=smiles_column_name, target_names= MUVDataset.target_names,
+                     add_hydrogen=add_hydrogen, seed=seed, transform=transform, pre_transform=pre_transform, pre_filter=pre_filter)
+    
 
 class BaceDataset(InMemorySmilesDataset):
     """ 
@@ -126,7 +156,7 @@ class BaceDataset(InMemorySmilesDataset):
     
     target_names = ['Class','pIC50']
     
-    def __init__(self, root: str, add_hydrogen=False, seed=0x00ffd, transform: Optional[Callable] = None,
+    def __init__(self, root: str, add_hydrogen=False, seed=GLOBAL_SEED, transform: Optional[Callable] = None,
                  pre_transform: Optional[Callable] = None,
                  pre_filter: Optional[Callable] = None):
         
@@ -150,7 +180,7 @@ class FreeSolvDataset(InMemorySmilesDataset):
 
     target_names = ['y']
     
-    def __init__(self, root: str, add_hydrogen=False, seed=0x00ffd, transform: Optional[Callable] = None, pre_transform: Optional[Callable] = None, pre_filter: Optional[Callable] = None):
+    def __init__(self, root: str, add_hydrogen=False, seed=GLOBAL_SEED, transform: Optional[Callable] = None, pre_transform: Optional[Callable] = None, pre_filter: Optional[Callable] = None):
                 
         filename="freesolv.csv.gz"
         raw_url= 'https://deepchemdata.s3-us-west-1.amazonaws.com/datasets/freesolv.csv.gz'
@@ -179,7 +209,7 @@ class BBBPDataset():
 
     target_names = ['p_np']
     
-    def __init__(self, root: str, add_hydrogen=False, seed=0x00ffd, transform: Optional[Callable] = None, pre_transform: Optional[Callable] = None, pre_filter: Optional[Callable] = None):
+    def __init__(self, root: str, add_hydrogen=False, seed=GLOBAL_SEED, transform: Optional[Callable] = None, pre_transform: Optional[Callable] = None, pre_filter: Optional[Callable] = None):
                 
         filename="BBBP.csv"
         raw_url= 'https://deepchemdata.s3-us-west-1.amazonaws.com/datasets/BBBP.csv'
@@ -200,7 +230,7 @@ def main():
     parser.add_argument('--dataset', help=f"Name of the dataset to process")
     parser.add_argument('--root', help="path to the root directory where the raw and processed data will be stored")
     parser.add_argument('--hydrogen', action='store_true', help="If flag specified, hydrogens are explicitly described in graph representation.")
-    parser.add_argument('--seed', default=0x00ffd, type=int, help="seed for randomness")
+    parser.add_argument('--seed', default=GLOBAL_SEED, type=int, help="seed for randomness")
     args = parser.parse_args()
 
     
