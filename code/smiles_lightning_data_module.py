@@ -1,6 +1,6 @@
 import pytorch_lightning as pl
 
-from smiles_dataset import SmilesInMemoryDataset
+from torch_geometric.data import Dataset
 from torch_geometric.loader import  DataLoader
 import math
 
@@ -8,7 +8,7 @@ import math
 class SmilesDataModule(pl.LightningDataModule):
     """ Pytorch Ligthning Data Module wrapper around Smiles Dataset to ensure reproducible and easy splitting of the dataset"""
     
-    def __init__(self, dataset:SmilesInMemoryDataset, seed, train_frac=0.6, valid_frac=0.1, test_frac=0.3, batch_size=32, test_dataset:SmilesInMemoryDataset = None) -> None:
+    def __init__(self, dataset:Dataset, seed, train_frac=0.6, valid_frac=0.1, test_frac=0.3, batch_size=32, test_dataset:Dataset = None) -> None:
         super().__init__()
     
         fracs= [train_frac,valid_frac,test_frac]

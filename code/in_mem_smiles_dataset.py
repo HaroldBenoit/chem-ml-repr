@@ -7,7 +7,7 @@ from tqdm import tqdm
 import pathlib
 import pandas as pd
 
-from torch_geometric.data import InMemoryDataset
+from torch_geometric.data import InMemoryDataset, Data
 
 from utils import download_dataset, smiles_to_graph
 
@@ -32,6 +32,7 @@ class InMemorySmilesDataset(InMemoryDataset):
         os.makedirs(f"{self.root}/processed", exist_ok=True)
         
         super().__init__(self.root, transform, pre_transform, pre_filter)
+        self.data, self.slices = torch.load(self.processed_paths[0])
         
     @property
     def raw_file_names(self) -> List[str]:
@@ -101,4 +102,3 @@ class InMemorySmilesDataset(InMemoryDataset):
         torch.save(aux_data, osp.join(self.processed_dir, "aux_data.pt"))
         data, slices = self.collate(data_list)
         torch.save((data, slices), self.processed_paths[0])
-

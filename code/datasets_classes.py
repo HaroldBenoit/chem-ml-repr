@@ -56,6 +56,7 @@ from utils import download_dataset, smiles_to_graph
 GLOBAL_SEED=0x00ffd
 
 
+
 class QM9Dataset(SmilesDataset):
     """Load QM9 dataset
     QM9 is a comprehensive dataset that provides geometric, energetic,
@@ -95,6 +96,8 @@ class QM9Dataset(SmilesDataset):
     
     
     target_names = ["mu", "alpha", "homo", "lumo", "gap", "r2", "zpve", "cv", "u0", "u298","h298", "g298"]
+    is_classification={target:False for target in target_names}
+
     
     def __init__(self, root: str, add_hydrogen=False, seed=GLOBAL_SEED, transform: Optional[Callable] = None,
                  pre_transform: Optional[Callable] = None,
@@ -126,6 +129,7 @@ class MUVDataset(SmilesDataset):
     """
     
     target_names = ['MUV-466', 'MUV-548', 'MUV-600', 'MUV-644', 'MUV-652', 'MUV-689', 'MUV-692', 'MUV-712', 'MUV-713', 'MUV-733', 'MUV-737', 'MUV-810', 'MUV-832', 'MUV-846', 'MUV-852', 'MUV-858', 'MUV-859']
+    is_classification={target:True for target in target_names}
     
     def __init__(self, root: str, add_hydrogen=False, seed=GLOBAL_SEED, transform: Optional[Callable] = None,
                  pre_transform: Optional[Callable] = None,
@@ -155,6 +159,8 @@ class BaceDataset(InMemorySmilesDataset):
     """ 
     
     target_names = ['Class','pIC50']
+    is_classification={'Class':True, 'pIC50':False}
+
     
     def __init__(self, root: str, add_hydrogen=False, seed=GLOBAL_SEED, transform: Optional[Callable] = None,
                  pre_transform: Optional[Callable] = None,
@@ -163,7 +169,8 @@ class BaceDataset(InMemorySmilesDataset):
         filename="bace.csv"
         raw_url= 'https://deepchemdata.s3-us-west-1.amazonaws.com/datasets/bace.csv'
         smiles_column_name="mol"
-        super().__init__(root=root, filename = filename, raw_url=raw_url, smiles_column_name=smiles_column_name, target_names= BaceDataset.target_names,add_hydrogen=add_hydrogen, seed=seed, transform=transform, pre_transform=pre_transform, pre_filter=pre_filter)
+        super().__init__(root=root, filename = filename, raw_url=raw_url, smiles_column_name=smiles_column_name,
+                         target_names= BaceDataset.target_names,add_hydrogen=add_hydrogen, seed=seed, transform=transform, pre_transform=pre_transform, pre_filter=pre_filter)
         
         
 class FreeSolvDataset(InMemorySmilesDataset):
@@ -179,6 +186,8 @@ class FreeSolvDataset(InMemorySmilesDataset):
     """
 
     target_names = ['y']
+    is_classification={'y':False}
+
     
     def __init__(self, root: str, add_hydrogen=False, seed=GLOBAL_SEED, transform: Optional[Callable] = None, pre_transform: Optional[Callable] = None, pre_filter: Optional[Callable] = None):
                 
@@ -189,7 +198,7 @@ class FreeSolvDataset(InMemorySmilesDataset):
                          target_names= FreeSolvDataset.target_names,add_hydrogen=add_hydrogen, seed=seed, transform=transform, pre_transform=pre_transform, pre_filter=pre_filter)
         
 
-class BBBPDataset():
+class BBBPDataset(InMemorySmilesDataset):
     """
     Load BBBP dataset
     The blood-brain barrier penetration (BBBP) dataset is designed for the
@@ -208,6 +217,7 @@ class BBBPDataset():
     """ 
 
     target_names = ['p_np']
+    is_classification={'p_np':True}
     
     def __init__(self, root: str, add_hydrogen=False, seed=GLOBAL_SEED, transform: Optional[Callable] = None, pre_transform: Optional[Callable] = None, pre_filter: Optional[Callable] = None):
                 
@@ -215,17 +225,15 @@ class BBBPDataset():
         raw_url= 'https://deepchemdata.s3-us-west-1.amazonaws.com/datasets/BBBP.csv'
         smiles_column_name="smiles"
         super().__init__(root=root, filename = filename, raw_url=raw_url, smiles_column_name=smiles_column_name,
-                         target_names= FreeSolvDataset.target_names,add_hydrogen=add_hydrogen, seed=seed, transform=transform, pre_transform=pre_transform, pre_filter=pre_filter)
+                         target_names= BBBPDataset.target_names,add_hydrogen=add_hydrogen, seed=seed, transform=transform, pre_transform=pre_transform, pre_filter=pre_filter)
 
 
 
-
+dataset_dict= {"qm9": QM9Dataset, "bace":BaceDataset, "bbbp": BBBPDataset, "freesolv":FreeSolvDataset}
 
 
 def main():
-    
-    dataset_dict= {"qm9": QM9Dataset, "bace":BaceDataset, "bbbp": BBBPDataset, "freesolv":FreeSolvDataset}
-    
+        
     parser = argparse.ArgumentParser(prog="DatasetProcessing", description="Given the dataset name and root path, processes the dataset according to our method")
     parser.add_argument('--dataset', help=f"Name of the dataset to process")
     parser.add_argument('--root', help="path to the root directory where the raw and processed data will be stored")

@@ -19,6 +19,7 @@ from datasets_classes import QM9Dataset
 import wandb
 import pdb
 import argparse
+import datasets_classes
 
 def main():
     
@@ -27,28 +28,32 @@ def main():
     parser.add_argument('--cluster', action='store_true' ,help="If flag specified, we are training on the cluster")
     parser.add_argument('--hydrogen', action='store_true' ,help="If flag specified, we are using the hydrogen dataset")
     parser.add_argument('--checkpoint', help="Path to the checkpoint of the model (ends with .ckpt). Defaults to None")
+    
+    ##dataset
+    parser.add_argument('--root', required=True)
+    parser.add_argument('--dataset', required=True)
     parser.add_argument('--target', required=True)
+    
+    ##training
+    parser.add_argument('--epochs', default=100)
     args = parser.parse_args()
 
     debug= args.debug
 
     ## dataset
-    root= "../data/qm9"
-    filename="qm9.csv"
+    root= args.root
+    dataset=args.dataset
     target=args.target
-    classification=False
-    output_dim = 2 if classification else 1
+
     seed=42
     
-    ## model
-    num_hidden_features=256
-    dropout_p = 0.0
+
     ## pytorch lighting takes of seeding everything
     pl.seed_everything(seed=seed, workers=True)
     
     ## training
 
-    num_epochs=100
+    num_epochs=args.epochs
     # (int) log things every N batches
     log_freq=1
     accelerator="gpu"
@@ -62,15 +67,15 @@ def main():
     if debug:
         pdb.set_trace(header="Before dataset transform")
     
-    ## setting up wandb run names and loading correct dataset    
-    if "qm9" in filename:
-        project="qm9-project"
-        run_name=f"target_{target}" if not(args.hydrogen) else f"target_{target}_hydrogen"
-        
-        # filtering out irrelevant target and computing euclidean distances between each vertices
-        transforms=Compose([filter_target(target_names=QM9Dataset.target_names, target=target), distance.Distance()])
-        dataset = QM9Dataset(root=root, add_hydrogen=args.hydrogen, seed=seed,transform=transforms)
-        
+
+    
+    
+    ## DATASET
+    dataset_class = datasets_classes.dataset_dict[dataset]
+    # filtering out irrelevant target and computing euclidean distances between each vertices
+    transforms=Compose([filter_target(target_names=dataset_class.target_names, target=target), distance.Distance()])
+    dataset = dataset_class(root=root, add_hydrogen=args.hydrogen,transform=transforms)
+    
 
     if debug:
         pdb.set_trace(header="After dataset transform")
@@ -78,12 +83,26 @@ def main():
     # from torch dataset, create lightning data module to make sure training splits are always done the same ways
     data_module = SmilesDataModule(dataset=dataset, seed=seed)
     
+    ## MODEL
+    num_hidden_features=256
+    dropout_p = 0.0
+    classification= dataset_class.is_classification[target]
+    output_dim = 2 if classification else 1
+    
     num_node_features = data_module.num_node_features
     num_edge_features= data_module.num_edge_features
     
     gnn_model = LightningClassicGNN(seed=seed, classification=classification, output_dim=output_dim, dropout_p=dropout_p,
                                     num_hidden_features=num_hidden_features,  num_node_features=num_node_features, num_edge_features=num_edge_features)
     
+    
+    ## WANDB
+      
+    project=f"{dataset}-project"
+    run_name=f"target_{target}" if not(args.hydrogen) else f"target_{target}_hydrogen"
+    #quirk of wandbs
+    if "mu" in target:
+        run_name=f"target__{target}" if not(args.hydrogen) else f"target__{target}_hydrogen"
     
     #docs: https://pytorch-lightning.readthedocs.io/en/stable/extensions/generated/pytorch_lightning.loggers.WandbLogger.html#pytorch_lightning.loggers.WandbLogger
     wandb_logger = WandbLogger(save_dir="../training_artifacts/", log_model=True, project=project, name=run_name, id=run_name)
