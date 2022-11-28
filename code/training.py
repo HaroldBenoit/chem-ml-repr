@@ -1,4 +1,3 @@
-from smiles_dataset import SmilesInMemoryDataset
 from smiles_lightning_data_module import SmilesDataModule
 from lightning_model import LightningClassicGNN
 import pytorch_lightning as pl
@@ -15,7 +14,6 @@ import numpy as np
 from torch_geometric.data import Data
 from typing import List, Callable
 from functools import partial
-from smiles_dataset import SmilesInMemoryDataset
 from torch_geometric.transforms import Compose, distance
 from datasets_classes import QM9Dataset
 import wandb
@@ -122,7 +120,7 @@ def main():
     
     
 def filter_target(target_names:List[str], target:str)-> Callable[[Data],Data]:
-    """ Transform to be given to SmilesInMemoryDataset, has the effect of filtering out all irelevant targets in the Data objects in the dataset at runtime
+    """ Transform to be given to a Dataset, has the effect of filtering out all irelevant targets in the Data objects in the dataset at runtime
     Example: for BACE, target_names=['Class', 'PIC50'], we want to train a classifier => target='Class'
     """
     target_idx = target_names.index(target)
