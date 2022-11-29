@@ -104,10 +104,17 @@ def main():
     ## WANDB
       
     project=f"{dataset}-project"
-    run_name=f"target_{target}" if not(args.hydrogen) else f"target_{target}_hydrogen"
+    run_name=f"target_{target}" 
     #quirk of wandbs
     if "mu" in target:
-        run_name=f"target__{target}" if not(args.hydrogen) else f"target__{target}_hydrogen"
+        run_name=f"target__{target}"
+        
+    if args.hydrogen:
+        run_name=f"{run_name}_hydrogen"
+        
+    if args.weighted:
+        run_name=f"{run_name}_weighted"
+        
     
     #docs: https://pytorch-lightning.readthedocs.io/en/stable/extensions/generated/pytorch_lightning.loggers.WandbLogger.html#pytorch_lightning.loggers.WandbLogger
     wandb_logger = WandbLogger(save_dir="../training_artifacts/", log_model=True, project=project, name=run_name, id=run_name)
