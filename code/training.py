@@ -3,9 +3,6 @@ from lightning_model import LightningClassicGNN
 import pytorch_lightning as pl
 from pytorch_lightning.loggers import WandbLogger
 from pytorch_lightning.callbacks.early_stopping import EarlyStopping
-from torch_geometric.transforms import distance
-from torch_geometric.loader import DataLoader
-import os
 import torch
 # making sure we are as determinstic as possibe
 #torch.use_deterministic_algorithms(True)
@@ -16,7 +13,6 @@ from typing import List, Callable
 from functools import partial
 from torch_geometric.transforms import Compose
 from utils import Distance
-from datasets_classes import QM9Dataset
 import wandb
 import pdb
 import argparse
@@ -31,17 +27,17 @@ def main():
     parser.add_argument('--checkpoint', help="Path to the checkpoint of the model (ends with .ckpt). Defaults to None")
     
     ##dataset
-    parser.add_argument('--root', required=True)
-    parser.add_argument('--dataset', required=True)
-    parser.add_argument('--target', required=True)
+    parser.add_argument('--root', required=True, help="Root path where the dataset is stored or to be stored after processing")
+    parser.add_argument('--dataset', required=True, help="Dataset name")
+    parser.add_argument('--target', required=True, help="Target name i.e. inferred value in dataset")
     parser.add_argument('--weighted', action="store_true", help="If flag specified, make the edge distances weighted by atomic radius")
     
     ##training
     parser.add_argument('--epochs', default=100)
+    
+    
     args = parser.parse_args()
-
     debug= args.debug
-
     ## dataset
     root= args.root
     dataset=args.dataset
@@ -73,6 +69,7 @@ def main():
     
     
     ## DATASET
+    ## getting the correct dataset
     dataset_class = datasets_classes.dataset_dict[dataset]
     # filtering out irrelevant target and computing euclidean distances between each vertices
     weighted = args.weighted
@@ -80,13 +77,13 @@ def main():
     distance = Distance(weighted=weighted,atom_number_to_radius=atom_number_to_radius)
     transforms=Compose([filter_target(target_names=dataset_class.target_names, target=target), distance])
     dataset = dataset_class(root=root, add_hydrogen=args.hydrogen,transform=transforms)
-    
+    # from torch dataset, create lightning data module to make sure training splits are always done the same ways
+    data_module = SmilesDataModule(dataset=dataset, seed=seed)
 
     if debug:
         pdb.set_trace(header="After dataset transform")
     
-    # from torch dataset, create lightning data module to make sure training splits are always done the same ways
-    data_module = SmilesDataModule(dataset=dataset, seed=seed)
+
     
     ## MODEL
     num_hidden_features=256
@@ -103,7 +100,7 @@ def main():
     
     ## WANDB
       
-    project=f"{dataset}-project"
+    project=f"{args.dataset}-project"
     run_name=f"target_{target}" 
     #quirk of wandbs
     if "mu" in target:
