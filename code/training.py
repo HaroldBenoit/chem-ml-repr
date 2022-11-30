@@ -22,6 +22,7 @@ def main():
     
     parser = argparse.ArgumentParser(prog="Training", description="Training pipeline")
     parser.add_argument('--debug', action='store_true', help="If flag specified, activate breakpoints in the script")
+    parser.add_argument('--no_log', action="store_true", help="If flag specified, no logging is done")
     parser.add_argument('--cluster', action='store_true' ,help="If flag specified, we are training on the cluster")
     parser.add_argument('--hydrogen', action='store_true' ,help="If flag specified, we are using the hydrogen dataset")
     parser.add_argument('--checkpoint', help="Path to the checkpoint of the model (ends with .ckpt). Defaults to None")
@@ -74,8 +75,10 @@ def main():
     # filtering out irrelevant target and computing euclidean distances between each vertices
     weighted = args.weighted
     atom_number_to_radius = None if not(weighted) else torch.load("../important_data/atom_number_to_radius.pt")
+    
     distance = Distance(weighted=weighted,atom_number_to_radius=atom_number_to_radius)
     transforms=Compose([filter_target(target_names=dataset_class.target_names, target=target), distance])
+    
     dataset = dataset_class(root=root, add_hydrogen=args.hydrogen,transform=transforms)
     # from torch dataset, create lightning data module to make sure training splits are always done the same ways
     data_module = SmilesDataModule(dataset=dataset, seed=seed)
@@ -93,7 +96,7 @@ def main():
     
     num_node_features = data_module.num_node_features
     num_edge_features= data_module.num_edge_features
-    
+      
     gnn_model = LightningClassicGNN(seed=seed, classification=classification, output_dim=output_dim, dropout_p=dropout_p,
                                     num_hidden_features=num_hidden_features,  num_node_features=num_node_features, num_edge_features=num_edge_features)
     
@@ -111,20 +114,24 @@ def main():
         
     if args.weighted:
         run_name=f"{run_name}_weighted"
+    
+    if args.no_log:
+        wandb_logger=False
+    else:
+        #docs: https://pytorch-lightning.readthedocs.io/en/stable/extensions/generated/pytorch_lightning.loggers.WandbLogger.html#pytorch_lightning.loggers.WandbLogger
+        wandb_logger = WandbLogger(save_dir="../training_artifacts/", log_model=True, project=project, name=run_name, id=run_name)
+        ## log histograms of gradients and parameters
+        wandb_logger.watch(gnn_model, log_freq=log_freq)
         
+        
+    ## TRAINER
     
-    #docs: https://pytorch-lightning.readthedocs.io/en/stable/extensions/generated/pytorch_lightning.loggers.WandbLogger.html#pytorch_lightning.loggers.WandbLogger
-    wandb_logger = WandbLogger(save_dir="../training_artifacts/", log_model=True, project=project, name=run_name, id=run_name)
-    ## log histograms of gradients and parameters
-    wandb_logger.watch(gnn_model, log_freq=log_freq)
-    
-    ## setting up the trainer
     strategy = "ddp" if args.cluster else None
     ## creating early stop callback to ensure we don't overfit
     early_stop_callback = EarlyStopping(monitor="loss/valid", mode="min", patience=num_epochs//2, min_delta=0.00)
     
-    trainer = pl.Trainer(logger=wandb_logger, deterministic=False, default_root_dir="../training_artifacts/", precision=16,
-	 strategy=strategy,max_epochs=num_epochs ,log_every_n_steps=log_freq, devices=devices, accelerator=accelerator, callbacks=[early_stop_callback])
+    trainer = pl.Trainer(logger=wandb_logger, deterministic=False, default_root_dir="../training_artifacts/", precision=32,
+	 strategy=strategy,max_epochs=num_epochs ,log_every_n_steps=log_freq, devices=devices, accelerator=accelerator, callbacks=[early_stop_callback], fast_dev_run=False)
 
     # strategy="ddp"   
     
@@ -151,6 +158,9 @@ def filter_target(target_names:List[str], target:str)-> Callable[[Data],Data]:
     """ Transform to be given to a Dataset, has the effect of filtering out all irelevant targets in the Data objects in the dataset at runtime
     Example: for BACE, target_names=['Class', 'PIC50'], we want to train a classifier => target='Class'
     """
+    if target not in target_names:
+        raise ValueError(f"Given target {target} is not present in targets {target_names}")
+    
     target_idx = target_names.index(target)
 
     return partial(filter_target_with_idx, target_idx=target_idx)

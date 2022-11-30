@@ -206,7 +206,7 @@ class Distance(BaseTransform):
         if self.weighted:
             # z gives us atomic number
             weights=  torch.tensor([(self.atom_number_to_radius[int(data.z[i])]+ self.atom_number_to_radius[int(data.z[j])])/2 for i,j in data.edge_index.T]).view(-1,1)
-            print(weights)
+            #print(weights)
             dist = (dist/weights).view(-1,1)
         
 

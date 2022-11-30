@@ -3,6 +3,7 @@ import torch
 from torch.nn import Dropout, Linear,PReLU
 
 from torch_geometric.nn import GeneralConv, Sequential, global_add_pool, BatchNorm
+from sklearn.metrics import roc_auc_score
 
 from typing import Any
 
@@ -10,6 +11,8 @@ from typing import Any
 # these imports are only used in the Lighning version
 import pytorch_lightning as pl
 import torch.nn.functional as F
+
+import pdb
 
 
 
@@ -83,54 +86,59 @@ class LightningClassicGNN(pl.LightningModule):
     
     
     def training_step(self, batch, batch_index):
-        x, edge_index = batch.x , batch.edge_index
-        batch_index = batch.batch
-        batch_size= len(batch)
-        x_out = self.forward(x, edge_index, batch_index)
-        
-        if self.classification:
+        return self.forward_step(batch=batch, batch_index=batch_index, is_train=True)
 
-            loss = F.cross_entropy(x_out, torch.squeeze(batch.y,1).long())
-        
-            # metrics here
-            pred = x_out.argmax(-1)
-            label = batch.y
-            accuracy = (pred ==label).sum() / pred.shape[0]
-
-            self.log("loss/train", loss, batch_size=batch_size, on_epoch=True)
-            self.log("accuracy/train", accuracy, batch_size=batch_size, on_epoch=True)
-        else:
-            loss= F.l1_loss(x_out,batch.y)
-            self.log("loss/train", loss, batch_size=batch_size, on_epoch=True)
-            
-        
-        return loss
     
     def validation_step(self, batch, batch_index):
         
-        x, edge_index = batch.x , batch.edge_index
-        batch_index = batch.batch
-        batch_size= len(batch)
-        x_out = self.forward(x, edge_index, batch_index)
-        
-        if self.classification:
+        return self.forward_step(batch=batch, batch_index=batch_index, is_train=False)
+    
+    
+    def forward_step(self,batch,batch_index, is_train: bool):
+            x, edge_index = batch.x , batch.edge_index
+            batch_index = batch.batch
+            batch_size= len(batch)
+            #print("x ", x)
+            #print("edge_index: ", edge_index)
+            #print("batch_index: " ,batch_index)
             
-            loss = F.cross_entropy(x_out, torch.squeeze(batch.y,1).long())
-        
-            # metrics here
-            pred = x_out.argmax(-1)
-            label = batch.y
-            accuracy = (pred ==label).sum() / pred.shape[0]
+            x_out = self.forward(x, edge_index, batch_index)
+            
+            suffix= "train" if is_train else "valid"
 
-            self.log("loss/valid", loss, batch_size=batch_size, on_epoch=True, sync_dist=True)
-            self.log("accuracy/valid", accuracy,batch_size=batch_size, on_epoch=True, sync_dist=True)
-            
-            return x_out, pred, batch.y
-        else:
-            
-            loss= F.l1_loss(x_out,batch.y)
-            self.log("loss/valid", loss, batch_size=batch_size, on_epoch=True, sync_dist=True)
-            return x_out, batch.y
+
+            if self.classification:
+
+                batch_y = torch.squeeze(batch.y,1)
+                loss = F.cross_entropy(x_out, batch_y.long())
+
+                # metrics here
+                #x_out_cpu = x_out.detach().cpu()
+                #print("X_out", x_out_cpu)
+                prob = F.softmax(input=x_out, dim=1)[:,1]
+                batch_y_cpu=batch_y.detach().cpu().numpy()
+                prob_cpu = prob.detach().cpu().numpy()
+                #print("batch_y ",batch_y_cpu)
+                #print("prob ", prob_cpu)
+                auc= roc_auc_score(y_true= batch_y_cpu, y_score= prob_cpu)
+                
+                #print("Auc", auc)
+
+                pred = x_out.argmax(-1)
+                label = batch.y
+                accuracy = (pred ==label).sum() / pred.shape[0]
+
+                self.log(f"loss/{suffix}", loss, batch_size=batch_size, on_epoch=True)
+                self.log(f"auc/{suffix}", auc ,batch_size=batch_size, on_epoch=True)
+
+                self.log(f"accuracy/{suffix}",accuracy, batch_size=batch_size, on_epoch=True)
+            else:
+                loss= F.l1_loss(x_out,batch.y)
+                self.log(f"loss/{suffix}", loss, batch_size=batch_size, on_epoch=True)
+
+
+            return loss
+        
     
     
     def configure_optimizers(self):
