@@ -103,8 +103,7 @@ class QM9Dataset(SmilesDataset):
                  pre_transform: Optional[Callable] = None,
                  pre_filter: Optional[Callable] = None):
         
-        filename="muv.csv.gz"
-        raw_url= "https://deepchemdata.s3-us-west-1.amazonaws.com/datasets/muv.csv.gz"
+
         filename="qm9.csv"
         raw_url= 'https://deepchemdata.s3-us-west-1.amazonaws.com/datasets/qm9.csv'
         smiles_column_name="smiles"
