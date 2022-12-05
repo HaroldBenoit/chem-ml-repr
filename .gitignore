@@ -1,6 +1,10 @@
 
 #Hiding .vscode settings
 .vscode/
+
+#Hidign results folder
+results/*
+
 # Hiding data folders
 data/*
 # hiding tuning checkpoints

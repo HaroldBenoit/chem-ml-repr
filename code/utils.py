@@ -3,10 +3,6 @@ import numpy as np
 from typing import Optional, Callable
 import os
 import os.path as osp
-from torch_geometric.data import (
-    download_url,
-    extract_zip,
-)
 from typing import Tuple, List, Dict
 import pathlib
 import argparse
@@ -31,6 +27,55 @@ from torch_geometric.data import (
     Data)
 
 
+
+import ssl
+import sys
+
+from urllib.request import Request, urlopen
+
+
+
+def download_url(url: str, folder: str, log: bool = True,
+                 filename: Optional[str] = None):
+    r"""Downloads the content of an URL to a specific folder.
+
+    Args:
+        url (string): The url.
+        folder (string): The folder.
+        log (bool, optional): If :obj:`False`, will not print anything to the
+            console. (default: :obj:`True`)
+    """
+
+    if filename is None:
+        filename = url.rpartition('/')[2]
+        filename = filename if filename[0] == '?' else filename.split('?')[0]
+
+    path = osp.join(folder, filename)
+
+    if osp.exists(path):  # pragma: no cover
+        if log:
+            print(f'Using existing file {filename}', file=sys.stderr)
+        return path
+
+    if log:
+        print(f'Downloading {url}', file=sys.stderr)
+
+    os.makedirs(folder,exist_ok=True)
+
+    context = ssl.create_default_context()
+    ## precising agent to pass by forbidden access for some datasets (matbench)
+    req = Request(url,headers={'User-Agent': 'Mozilla/5.0'})
+ 
+    data = urlopen(req) 
+    with open(path, 'wb') as f:
+        # workaround for https://bugs.python.org/issue42853
+        while True:
+            chunk = data.read(10 * 1024 * 1024)
+            if not chunk:
+                break
+            f.write(chunk)
+
+    return path
 
 
 
