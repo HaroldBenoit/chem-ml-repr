@@ -9,7 +9,7 @@ import pandas as pd
 
 from torch_geometric.data import InMemoryDataset, Data
 
-from utils import download_dataset, smiles_to_graph
+from utils import download_dataset, data_to_graph
 
 class InMemorySmilesDataset(InMemoryDataset):
     
@@ -85,7 +85,7 @@ class InMemorySmilesDataset(InMemoryDataset):
         
         
         for idx in tqdm(range(data_len)):
-            data_list.append(smiles_to_graph(smile=df.index[idx], y=target[idx].unsqueeze(0), idx=idx,
+            data_list.append(data_to_graph(data=df.index[idx], y=target[idx].unsqueeze(0), idx=idx,
                                            seed=self.seed, add_hydrogen=self.add_hydrogen, pre_transform=self.pre_transform, pre_filter=self.pre_filter))    
             
         ## removing None

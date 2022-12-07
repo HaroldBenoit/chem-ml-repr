@@ -3,7 +3,7 @@ import numpy as np
 from typing import Optional, Callable
 import os
 import os.path as osp
-from typing import Tuple, List, Dict
+from typing import Tuple, List, Dict, Union
 import pathlib
 import argparse
 
@@ -26,6 +26,8 @@ from collections import defaultdict
 from torch_geometric.data import (
     Data)
 
+from pymatgen.core import Structure, Lattice, Molecule
+from pymatgen.io.babel import BabelMolAdaptor
 
 
 import ssl
@@ -102,7 +104,7 @@ def download_dataset(raw_dir:str, filename:str, raw_url:str, target_columns:List
 
 
 
-def get_molecule_and_coordinates(smile: str, seed:int, add_hydrogen: bool) ->  Tuple[Chem.rdchem.Mol, torch.Tensor]:
+def from_smiles_to_molecule_and_coordinates(smile: str, seed:int, add_hydrogen: bool) ->  Tuple[Chem.rdchem.Mol, torch.Tensor]:
     """From smiles string, generate 3D coordinates using seeded ETKDG procedure.
     Args:
         smile (str): valid smiles tring of molecule
@@ -146,18 +148,37 @@ def get_molecule_and_coordinates(smile: str, seed:int, add_hydrogen: bool) ->  T
 
 
 
-        
+def from_structure_to_molecule(struct:Structure, add_hydrogen: bool) -> Chem.rdchem.Mol:
 
+    # we will compute distances directly using the pymatgen structure
 
+    #then the following conversion : pymatgen.Structure -> pymatgen.Molecule -> pybel_mol -> mol file (to retain 3D information) ->  rdkit molecule
+    mol = Molecule(species=struct.species, coords=struct.cart_coords)
+    adaptor = BabelMolAdaptor(mol).pybel_mol
 
+    #ideally, we would like to give the correct 3D coordinates to the molecule, so we use .mol file
+    mol_file = adaptor.write('mol')
 
-def smiles_to_graph(smile:str, y:torch.tensor, idx: int, seed:int, add_hydrogen:bool, pre_transform: Callable, pre_filter:Callable) -> Data:
-    
-    ## 2. ETKDG seeded method 3D coordinate generation
-    mol, pos = get_molecule_and_coordinates(smile=smile, seed=seed, add_hydrogen=add_hydrogen)
-    
-    if mol is None:
+    try:
+        new_mol = Chem.MolFromMolBlock(mol_file)  
+    except:
+        print("unable to convert from mol file to rdkit mol")
         return None
+    
+    if add_hydrogen:
+        try:
+            new_mol = Chem.AddHs(new_mol)
+        except:
+            print("unable to add hydrogen")
+            return None
+
+    
+    return new_mol     
+
+
+
+def from_molecule_to_graph(mol:Chem.rdchem.Mol, y:torch.Tensor, pos:torch.Tensor, name:str, idx:int, data: Union[str,Structure]) -> Data:
+    
     # 3. QM9 featurization of nodes
     N = mol.GetNumAtoms()
     atomic_number = []
@@ -188,7 +209,6 @@ def smiles_to_graph(smile:str, y:torch.tensor, idx: int, seed:int, add_hydrogen:
     first_node_index = []
     second_node_index = []
     edge_type=[]
-    distances=[]
     
     for i in range(N):
         for j in range(N):
@@ -207,8 +227,40 @@ def smiles_to_graph(smile:str, y:torch.tensor, idx: int, seed:int, add_hydrogen:
     
     x = torch.tensor([atomic_number, aromatic, sp, sp2, sp3],dtype=torch.float).t().contiguous()
     #x = torch.cat([x1.to(torch.float), x2], dim=-1)
-    data = Data(x=x, z=z, pos=pos, edge_index=edge_index,
-                edge_attr=edge_attr, y=y, name=smile, idx=idx)
+    
+    if isinstance(data, str):
+        data = Data(x=x, z=z, pos=pos, edge_index=edge_index,
+                edge_attr=edge_attr, y=y, name=name, idx=idx)
+    elif isinstance(data, Structure):
+        (row, col) = edge_index
+        ## getting distances from distance matrix that is aware of mirror images
+        dist = torch.tensor(data.distance_matrix[row,col])
+        data= Data(x=x, z=z,edge_index=edge_index, edge_attr=edge_attr, y=y, name=name, idx=idx, dist=dist)
+
+    
+    return data
+    
+
+
+def data_to_graph(data:Union[str,Structure], y:torch.Tensor, idx: int, seed:int, add_hydrogen:bool, pre_transform: Callable, pre_filter:Callable) -> Data:
+    
+    
+    if isinstance(data,str):
+        name= data
+        ## 2. ETKDG seeded method 3D coordinate generation
+        mol, pos = from_smiles_to_molecule_and_coordinates(smile=data, seed=seed, add_hydrogen=add_hydrogen)
+        
+    elif isinstance(data,Structure):
+        name = data.formula
+        ## no need for 3D coordinate generation as crystallographic structure is given
+        mol = from_structure_to_molecule(struct=data, add_hydrogen=add_hydrogen)
+        pos = None
+    
+    if mol is None:
+        return None
+    
+    data= from_molecule_to_graph(mol=mol, y=y, pos=pos, name=name, idx=idx)
+    
     if pre_filter is not None and not pre_filter(data):
         return None
     
@@ -250,10 +302,19 @@ class Distance(BaseTransform):
         if self.weighted and self.atom_number_to_radius is None:
             raise ValueError("If distance is weighted, the atomic radius dictionary must be provided")
 
-    def __call__(self, data):
-        (row, col), pos, pseudo = data.edge_index, data.pos, data.edge_attr
+    def __call__(self, data:Data) -> Data:
 
-        dist = torch.norm(pos[col] - pos[row], p=2, dim=-1).view(-1, 1)
+
+        pseudo = data.edge_attr
+        ## in the case of smiles molecules, we need to compute distances
+        ## we need to check for non-presence of dist instead of presence of pos because Data class has always pos attributes
+        if not(hasattr(data,'dist')):
+            (row, col), pos = data.edge_index, data.pos
+            dist = torch.norm(pos[col] - pos[row], p=2, dim=-1).view(-1, 1)
+        else:
+            ## in the case of pymatgen structures, we have already computed beforehand as we need to be careful with mirror images
+            ## this was done using struct.distance_matrix (which gives Euclidean distance)
+            dist = data.dist
         
         ## must weigh distance before normalizing as units [Angstrom] need to match
         if self.weighted:

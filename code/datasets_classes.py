@@ -42,7 +42,7 @@ dask.config.set(scheduler="processes")
 from dask.distributed import Client, LocalCluster
 
 
-from utils import download_dataset, smiles_to_graph
+from utils import download_dataset, data_to_graph
     
     
     #def __init__(self, root: str, add_hydrogen=False, seed=GLOBAL_SEED) -> None:

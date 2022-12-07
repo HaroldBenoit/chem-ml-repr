@@ -9,7 +9,7 @@ import pandas as pd
 
 from torch_geometric.data import Dataset
 
-from utils import download_dataset, smiles_to_graph
+from utils import download_dataset, data_to_graph
 
 
 class SmilesDataset(Dataset):
@@ -130,7 +130,7 @@ class SmilesDataset(Dataset):
             else:
                 indexes = range(i*step, data_len)
             
-            data_list = [smiles_to_graph(smile=df.index[idx], y=target[idx].unsqueeze(0), idx=idx,
+            data_list = [data_to_graph(data=df.index[idx], y=target[idx].unsqueeze(0), idx=idx,
                                            seed=self.seed, add_hydrogen=self.add_hydrogen, pre_transform=self.pre_transform, pre_filter=self.pre_filter) for idx in indexes]        
             #data_list = client.compute(allpromises)
             #data_list = client.gather(data_list)
