@@ -22,7 +22,6 @@ class SmilesDataset(Dataset):
                  pre_transform: Optional[Callable],
                  pre_filter: Optional[Callable]):
         """
-
         Args:
             root (str): root directory where the raw data can be found and where the processed data will be stored
             filename (str): csv filename of the dataset

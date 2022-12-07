@@ -55,7 +55,7 @@ class LightningClassicGNN(pl.LightningModule):
         # how to build layers: function header definition i.e. input args and return: "arg1, arg2 -> return_type"
         
         # first initial layer
-        layers=[(GeneralConv(in_channels=self.num_node_features, in_edge_channels=self.num_edge_features,out_channels=self.hidden), "x, edge_index -> x0"),
+        layers=[(GeneralConv(in_channels=self.num_node_features, in_edge_channels=self.num_edge_features,out_channels=self.hidden), "x, edge_index-> x0"),
                 (BatchNorm(in_channels=self.hidden), "x0 -> x0a"),
                 (PReLU(), "x0a -> x0b"),
                 (Dropout(p = self.dropout_p), "x0b -> x0c"),]

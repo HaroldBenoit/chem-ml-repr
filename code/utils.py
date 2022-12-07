@@ -81,16 +81,24 @@ def download_url(url: str, folder: str, log: bool = True,
 
 
 def download_dataset(raw_dir:str, filename:str, raw_url:str, target_columns:List[str], smiles_column_name: str):
+    """_summary_
 
-        complete_path = f"{raw_dir}/{filename}"
-        filepath= download_url(raw_url, raw_dir)
-        df = pd.read_csv(complete_path)
-        col_list=[smiles_column_name]+ target_columns
-        df.drop(df.columns.difference(col_list), axis=1, inplace=True)
-        df.set_index(smiles_column_name, drop=True, inplace=True)
-        df.to_csv(complete_path, encoding="utf-8")
-
-        return 
+    Args:
+        raw_dir (str): _description_
+        filename (str): _description_
+        raw_url (str): _description_
+        target_columns (List[str]): _description_
+        smiles_column_name (str): _description_
+    """
+    complete_path = f"{raw_dir}/{filename}"
+    filepath= download_url(raw_url, raw_dir)
+    df = pd.read_csv(complete_path)
+    col_list=[smiles_column_name]+ target_columns
+    df.drop(df.columns.difference(col_list), axis=1, inplace=True)
+    df.set_index(smiles_column_name, drop=True, inplace=True)
+    df.to_csv(complete_path, encoding="utf-8")
+    
+    return 
 
 
 
