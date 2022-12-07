@@ -82,7 +82,7 @@ def download_url(url: str, folder: str, log: bool = True,
 
 
 
-def download_dataset(raw_dir:str, filename:str, raw_url:str, target_columns:List[str], smiles_column_name: str):
+def download_dataset(raw_dir:str, filename:str, raw_url:str, target_columns:List[str], data_column_name: str):
     """_summary_
 
     Args:
@@ -90,15 +90,20 @@ def download_dataset(raw_dir:str, filename:str, raw_url:str, target_columns:List
         filename (str): _description_
         raw_url (str): _description_
         target_columns (List[str]): _description_
-        smiles_column_name (str): _description_
+        data_column_name (str): _description_
     """
     complete_path = f"{raw_dir}/{filename}"
     filepath= download_url(raw_url, raw_dir)
-    df = pd.read_csv(complete_path)
-    col_list=[smiles_column_name]+ target_columns
-    df.drop(df.columns.difference(col_list), axis=1, inplace=True)
-    df.set_index(smiles_column_name, drop=True, inplace=True)
-    df.to_csv(complete_path, encoding="utf-8")
+    
+    ## if original dataset was in csv, write it back in csv after filtering
+    ## for json.gz dataset for materials, we will have to take care of it later downstream 
+    if "csv" in filename:
+    
+        df = pd.read_csv(complete_path)
+        col_list=[data_column_name]+ target_columns
+        df.drop(df.columns.difference(col_list), axis=1, inplace=True)
+        df.set_index(data_column_name, drop=True, inplace=True)
+        df.to_csv(complete_path, encoding="utf-8")
     
     return 
 
@@ -254,6 +259,7 @@ def data_to_graph(data:Union[str,Structure], y:torch.Tensor, idx: int, seed:int,
         name = data.formula
         ## no need for 3D coordinate generation as crystallographic structure is given
         mol = from_structure_to_molecule(struct=data, add_hydrogen=add_hydrogen)
+        ## we still initialize pos for compatibility with functions
         pos = None
     
     if mol is None:

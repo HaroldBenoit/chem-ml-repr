@@ -12,13 +12,18 @@ from torch_geometric.data import Dataset
 from utils import download_dataset, data_to_graph
 
 
+import json
+import gzip
+
+from pymatgen.core import Structure
+
 class SmilesDataset(Dataset):
     """ Pytorch Geometric dataset for processing of smiles data, better suited for datasets that don't fit into RAM or take up a lot of space.
     """
     
         
 
-    def __init__(self, root: str,filename:str,raw_url:str, smiles_column_name:str, target_names: List[str],add_hydrogen: bool, seed: int, transform: Optional[Callable],
+    def __init__(self, root: str,filename:str,raw_url:str, data_column_name:str, target_names: List[str],add_hydrogen: bool, seed: int, transform: Optional[Callable],
                  pre_transform: Optional[Callable],
                  pre_filter: Optional[Callable]):
         """
@@ -41,7 +46,7 @@ class SmilesDataset(Dataset):
         self.root = root
         self.filename= filename
         self.raw_url= raw_url
-        self.smiles_column_name= smiles_column_name
+        self.data_column_name= data_column_name
         self.target_names=target_names
         self.add_hydrogen = add_hydrogen
         self.seed = seed
@@ -76,7 +81,7 @@ class SmilesDataset(Dataset):
 
     def download(self):
         download_dataset(raw_dir=self.raw_dir, filename=self.filename, raw_url=self.raw_url, target_columns=self.target_names,
-                                              smiles_column_name=self.smiles_column_name)
+                                              data_column_name=self.data_column_name)
         
     def process(self):
         
@@ -92,9 +97,24 @@ class SmilesDataset(Dataset):
         """
         
         
-        #1. Read the csv file,excepts a single columns of smiles string, the rest is considered as a target
-        df = pd.read_csv(self.raw_paths[0],index_col=0, encoding="utf-8")
-        target = torch.tensor(df.values)
+        if "csv" in self.filename:
+            #1. Read the csv file,excepts a single columns of smiles string, the rest is considered as a target
+            # this is the usual situation for smiles dataset
+            df = pd.read_csv(self.raw_paths[0],index_col=0, encoding="utf-8")
+            original_data = df.index
+            target = torch.tensor(df.values)
+        elif "json.gz" in self.filename:
+            #exppected behaviour when dealing with matbench dataset
+            complete_path = f"{self.raw_dir}/{self.filename}"
+
+            with gzip.open(complete_path, 'r') as fin:        #  gzip
+                json_bytes = fin.read()                      #  bytes (i.e. UTF-8)
+
+            json_str = json_bytes.decode('utf-8')            # string (i.e. JSON)
+            data = json.loads(json_str) 
+            
+            original_data = [Structure.from_dict(data_list[0]) for data_list in data[self.data_column_name]]
+            target = torch.tensor(data_list[1] for data_list in data[self.data_column_name])
     
 
         # dashboard: http://127.0.0.1:8787/status
@@ -130,7 +150,7 @@ class SmilesDataset(Dataset):
             else:
                 indexes = range(i*step, data_len)
             
-            data_list = [data_to_graph(data=df.index[idx], y=target[idx].unsqueeze(0), idx=idx,
+            data_list = [data_to_graph(data=original_data[idx], y=target[idx].unsqueeze(0), idx=idx,
                                            seed=self.seed, add_hydrogen=self.add_hydrogen, pre_transform=self.pre_transform, pre_filter=self.pre_filter) for idx in indexes]        
             #data_list = client.compute(allpromises)
             #data_list = client.gather(data_list)

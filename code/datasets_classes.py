@@ -106,9 +106,9 @@ class QM9Dataset(SmilesDataset):
 
         filename="qm9.csv"
         raw_url= 'https://deepchemdata.s3-us-west-1.amazonaws.com/datasets/qm9.csv'
-        smiles_column_name="smiles"
+        data_column_name="smiles"
 
-        super().__init__(root=root, filename = filename, raw_url=raw_url, smiles_column_name=smiles_column_name, target_names= QM9Dataset.target_names,
+        super().__init__(root=root, filename = filename, raw_url=raw_url, data_column_name=data_column_name, target_names= QM9Dataset.target_names,
                      add_hydrogen=add_hydrogen, seed=seed, transform=transform, pre_transform=pre_transform, pre_filter=pre_filter)
 
 
@@ -136,9 +136,9 @@ class MUVDataset(SmilesDataset):
         
         filename="muv.csv.gz"
         raw_url= "https://deepchemdata.s3-us-west-1.amazonaws.com/datasets/muv.csv.gz"
-        smiles_column_name="smiles"
+        data_column_name="smiles"
 
-        super().__init__(root=root, filename = filename, raw_url=raw_url, smiles_column_name=smiles_column_name, target_names= MUVDataset.target_names,
+        super().__init__(root=root, filename = filename, raw_url=raw_url, data_column_name=data_column_name, target_names= MUVDataset.target_names,
                      add_hydrogen=add_hydrogen, seed=seed, transform=transform, pre_transform=pre_transform, pre_filter=pre_filter)
     
 
@@ -167,8 +167,8 @@ class BaceDataset(InMemorySmilesDataset):
         
         filename="bace.csv"
         raw_url= 'https://deepchemdata.s3-us-west-1.amazonaws.com/datasets/bace.csv'
-        smiles_column_name="mol"
-        super().__init__(root=root, filename = filename, raw_url=raw_url, smiles_column_name=smiles_column_name,
+        data_column_name="mol"
+        super().__init__(root=root, filename = filename, raw_url=raw_url, data_column_name=data_column_name,
                          target_names= BaceDataset.target_names,add_hydrogen=add_hydrogen, seed=seed, transform=transform, pre_transform=pre_transform, pre_filter=pre_filter)
         
         
@@ -192,8 +192,8 @@ class FreeSolvDataset(InMemorySmilesDataset):
                 
         filename="freesolv.csv.gz"
         raw_url= 'https://deepchemdata.s3-us-west-1.amazonaws.com/datasets/freesolv.csv.gz'
-        smiles_column_name="smiles"
-        super().__init__(root=root, filename = filename, raw_url=raw_url, smiles_column_name=smiles_column_name,
+        data_column_name="smiles"
+        super().__init__(root=root, filename = filename, raw_url=raw_url, data_column_name=data_column_name,
                          target_names= FreeSolvDataset.target_names,add_hydrogen=add_hydrogen, seed=seed, transform=transform, pre_transform=pre_transform, pre_filter=pre_filter)
         
 
@@ -222,8 +222,8 @@ class BBBPDataset(InMemorySmilesDataset):
                 
         filename="BBBP.csv"
         raw_url= 'https://deepchemdata.s3-us-west-1.amazonaws.com/datasets/BBBP.csv'
-        smiles_column_name="smiles"
-        super().__init__(root=root, filename = filename, raw_url=raw_url, smiles_column_name=smiles_column_name,
+        data_column_name="smiles"
+        super().__init__(root=root, filename = filename, raw_url=raw_url, data_column_name=data_column_name,
                          target_names= BBBPDataset.target_names,add_hydrogen=add_hydrogen, seed=seed, transform=transform, pre_transform=pre_transform, pre_filter=pre_filter)
 
 
