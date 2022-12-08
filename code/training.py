@@ -12,7 +12,7 @@ from torch_geometric.data import Data
 from typing import List, Callable
 from functools import partial
 from torch_geometric.transforms import Compose
-from utils import Distance
+from distance import Distance
 import wandb
 import pdb
 import argparse

@@ -1,23 +1,16 @@
 import pandas as pd
-import numpy as np
 from typing import Optional, Callable
 import os
 import os.path as osp
 from typing import Tuple, List, Dict, Union
-import pathlib
-import argparse
 
 
-from typing import Callable, List, Optional, Tuple
-import pathlib
 
 from rdkit import Chem
 from rdkit.Chem import AllChem
 from rdkit.Chem import rdDistGeom
-from rdkit.Chem.rdchem import BondType as BT
-from rdkit.Chem.rdchem import HybridizationType
 
-
+from features import edge_features, node_features
 
 ## removing warnings
 from rdkit import RDLogger
@@ -28,7 +21,6 @@ import torch
 import torch.nn.functional as F
 from tqdm import tqdm
 
-from collections import defaultdict
 
 from torch_geometric.data import (
     Data)
@@ -180,57 +172,7 @@ def from_structure_to_molecule(struct:Structure) -> Chem.rdchem.Mol:
     return new_mol
 
 
-def node_features(mol:Chem.rdchem.Mol):
-    # 3. QM9 featurization of nodes
-    N = mol.GetNumAtoms()
-    atomic_number = []
-    aromatic = []
-    sp = []
-    sp2 = []
-    sp3 = []
-    for atom in mol.GetAtoms():
-        atomic_number.append(atom.GetAtomicNum())
-        aromatic.append(1 if atom.GetIsAromatic() else 0)
-        hybridization = atom.GetHybridization()
-        sp.append(1 if hybridization == HybridizationType.SP else 0)
-        sp2.append(1 if hybridization == HybridizationType.SP2 else 0)
-        sp3.append(1 if hybridization == HybridizationType.SP3 else 0)
-    x = torch.tensor([atomic_number, aromatic, sp, sp2, sp3],dtype=torch.float).t().contiguous()
-    z = torch.tensor(atomic_number, dtype=torch.long)
-    
-    return x,z
 
-def edge_features(mol:Chem.rdchem.Mol):
-    
-    # 4. Create the complete graph (no self-loops) with covalent bond types as edge attributes
-    
-    # must start at 1, as we will be using a defaultdict with default value of 0 (indicating no covalent bond)
-    bonds = {BT.SINGLE: 1, BT.DOUBLE: 2, BT.TRIPLE: 3, BT.AROMATIC: 4}
-    # getting all covalent bond types
-    bonds_dict = {(bond.GetBeginAtomIdx(),bond.GetEndAtomIdx()):bonds[bond.GetBondType()] for bond in mol.GetBonds()}
-    # returns 0 for all pairs of atoms with no covalent bond 
-    bonds_dict = defaultdict(int, bonds_dict)
-    # making the complete graph
-    first_node_index = []
-    second_node_index = []
-    edge_type=[]
-    
-    N = mol.GetNumAtoms()
-
-    
-    for i in range(N):
-        for j in range(N):
-            if i!=j:
-                first_node_index.append(i)
-                second_node_index.append(j)
-                edge_type.append(bonds_dict[(i,j)] if i < j else bonds_dict[(j,i)])
-
-    edge_index = torch.tensor([first_node_index, second_node_index], dtype=torch.long)
-    edge_type = torch.tensor(edge_type, dtype=torch.long)
-    edge_attr = F.one_hot(edge_type, num_classes=len(bonds)+1).to(torch.float)
-    
-    
-    return edge_index,edge_attr
 
 
 
@@ -293,73 +235,3 @@ def data_to_graph(data:Union[str,Structure], y:torch.Tensor, idx: int, seed:int,
     return graph    
 
 
-
-import torch
-
-from torch_geometric.transforms import BaseTransform
-
-
-class Distance(BaseTransform):
-    r"""Saves the (weighted) Euclidean distance of linked nodes in its edge attributes. 
-    (functional name: :obj:`distance`).
-
-    Args:
-        norm (bool, optional): If set to :obj:`False`, the output will not be
-            normalized to the interval :math:`[0, 1]`. (default: :obj:`True`)
-        max_value (float, optional): If set and :obj:`norm=True`, normalization
-            will be performed based on this value instead of the maximum value
-            found in the data. (default: :obj:`None`)
-        cat (bool, optional): If set to :obj:`False`, all existing edge
-            attributes will be replaced. (default: :obj:`True')
-        weigthed (bool,optional): If set to True, the edge euclidean distance is weighted by the sum of the atoms atomic radius. Defaults to True.
-        
-        atom_number_to_radius: (Dict[str,float],optional): Dictionary containig the atomic radius (in Angstrom) given an atomic number.
-    """
-    def __init__(self, norm: bool=True, max_value: float=None, cat: bool=True, weighted: bool=True, atom_number_to_radius: Dict[str,float]=None ):
-        self.norm = norm
-        self.max = max_value
-        self.cat = cat
-        self.weighted=weighted
-        self.atom_number_to_radius= atom_number_to_radius
-        
-        if self.weighted and self.atom_number_to_radius is None:
-            raise ValueError("If distance is weighted, the atomic radius dictionary must be provided")
-
-    def __call__(self, data:Data) -> Data:
-
-
-        pseudo = data.edge_attr
-        ## in the case of smiles molecules, we need to compute distances
-        ## we need to check for non-presence of dist instead of presence of pos because Data class has always pos attributes
-        if not(hasattr(data,'dist')):
-            (row, col), pos = data.edge_index, data.pos
-            dist = torch.norm(pos[col] - pos[row], p=2, dim=-1).view(-1, 1)
-        else:
-            ## in the case of pymatgen structures, we have already computed beforehand as we need to be careful with mirror images
-            ## this was done using struct.distance_matrix (which gives Euclidean distance)
-            dist = data.dist
-        
-        ## must weigh distance before normalizing as units [Angstrom] need to match
-        if self.weighted:
-            # z gives us atomic number
-            weights=  torch.tensor([(self.atom_number_to_radius[int(data.z[i])]+ self.atom_number_to_radius[int(data.z[j])])/2 for i,j in data.edge_index.T]).view(-1,1)
-            #print(weights)
-            dist = (dist/weights).view(-1,1)
-        
-
-        if self.norm and dist.numel() > 0:
-            dist = dist / (dist.max() if self.max is None else self.max)
-        
-#        print(dist.shape, dist)
-
-        if pseudo is not None and self.cat:
-            pseudo = pseudo.view(-1, 1) if pseudo.dim() == 1 else pseudo
-            data.edge_attr = torch.cat([pseudo, dist.type_as(pseudo)], dim=-1)
-        else:
-            data.edge_attr = dist
-
-        return data
-
-    def __repr__(self) -> str:
-        return (f'{self.__class__.__name__}(norm={self.norm}, '
-                f'max_value={self.max}) weighted={self.weighted}')
