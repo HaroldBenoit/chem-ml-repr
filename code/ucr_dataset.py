@@ -114,7 +114,7 @@ class UcrDataset(Dataset):
             data = json.loads(json_str) 
             
             original_data = [Structure.from_dict(data_list[0]) for data_list in data[self.data_column_name]]
-            target = torch.tensor(data_list[1] for data_list in data[self.data_column_name])
+            target = torch.tensor([data_list[1] for data_list in data[self.data_column_name]])
     
 
         # dashboard: http://127.0.0.1:8787/status
