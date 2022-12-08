@@ -1,6 +1,6 @@
 
 import torch
-from typing import Optional, Callable, List
+from typing import Optional, Callable, List, Dict, Any
 import os
 import os.path as osp
 from tqdm import tqdm
@@ -52,6 +52,10 @@ class UcrDataset(Dataset):
         self.seed = seed
         self.split_factor = 50
         
+        #auxiliary data, will need to be initialized after property is called
+        self._aux_data=None
+        self._len = None
+        
         if add_hydrogen:
             p=pathlib.Path(self.root)
             self.root = f"{str(p.parent)}/{p.stem}_hydrogen"
@@ -77,6 +81,15 @@ class UcrDataset(Dataset):
         path = pathlib.Path(self.filename)
         stem = path.stem 
         return [f"{stem}_{i}.pt" for i in range(self.split_factor)]
+    
+    
+    @property
+    def aux_data(self) -> Dict[str,Any]:
+        if self._aux_data is None:
+            self._aux_data = torch.load(osp.join(self.processed_dir, "aux_data.pt"))
+            
+        return self._aux_data
+
 
 
     def download(self):
@@ -184,14 +197,21 @@ class UcrDataset(Dataset):
         torch.save(aux_data, osp.join(self.processed_dir, "aux_data.pt"))
     
     def len(self):
-        return self.split_factor
-    
-    def get(self,idx):
-        aux_data = torch.load(osp.join(self.processed_dir, "aux_data.pt"))
-        old_len = aux_data["old_data_len"]
-        total_num_skipped = aux_data["total_num_skipped"]
+        if self._len is None:
+            old_data_len= self.aux_data["old_data_len"]
+            num_skipped = self.aux_data["total_num_skipped"]
+            self._len = old_data_len - num_skipped
+            
+        return self._len
         
-        if idx > (old_len - total_num_skipped) or idx < 0:
+    def get(self,idx):
+        aux_data = self.aux_data
+        if self._len is None:
+            old_data_len= self.aux_data["old_data_len"]
+            num_skipped = self.aux_data["total_num_skipped"]
+            self._len = old_data_len - num_skipped
+        
+        if idx > self._len or idx < 0:
             raise IndexError("Index out of range")
         
         data_split_idx = -1

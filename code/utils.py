@@ -17,6 +17,13 @@ from rdkit.Chem import rdDistGeom
 from rdkit.Chem.rdchem import BondType as BT
 from rdkit.Chem.rdchem import HybridizationType
 
+
+
+## removing warnings
+from rdkit import RDLogger
+RDLogger.DisableLog('rdApp.*')
+
+
 import torch
 import torch.nn.functional as F
 from tqdm import tqdm
@@ -153,7 +160,7 @@ def from_smiles_to_molecule_and_coordinates(smile: str, seed:int, add_hydrogen: 
 
 
 
-def from_structure_to_molecule(struct:Structure, add_hydrogen: bool) -> Chem.rdchem.Mol:
+def from_structure_to_molecule(struct:Structure) -> Chem.rdchem.Mol:
 
     # we will compute distances directly using the pymatgen structure
 
@@ -170,20 +177,10 @@ def from_structure_to_molecule(struct:Structure, add_hydrogen: bool) -> Chem.rdc
         print("unable to convert from mol file to rdkit mol")
         return None
     
-    if add_hydrogen:
-        try:
-            new_mol = Chem.AddHs(new_mol)
-        except:
-            print("unable to add hydrogen")
-            return None
-
-    
-    return new_mol     
+    return new_mol
 
 
-
-def from_molecule_to_graph(mol:Chem.rdchem.Mol, y:torch.Tensor, pos:torch.Tensor, name:str, idx:int, data: Union[str,Structure]) -> Data:
-    
+def node_features(mol:Chem.rdchem.Mol):
     # 3. QM9 featurization of nodes
     N = mol.GetNumAtoms()
     atomic_number = []
@@ -198,9 +195,12 @@ def from_molecule_to_graph(mol:Chem.rdchem.Mol, y:torch.Tensor, pos:torch.Tensor
         sp.append(1 if hybridization == HybridizationType.SP else 0)
         sp2.append(1 if hybridization == HybridizationType.SP2 else 0)
         sp3.append(1 if hybridization == HybridizationType.SP3 else 0)
+    x = torch.tensor([atomic_number, aromatic, sp, sp2, sp3],dtype=torch.float).t().contiguous()
     z = torch.tensor(atomic_number, dtype=torch.long)
     
-    
+    return x,z
+
+def edge_features(mol:Chem.rdchem.Mol):
     
     # 4. Create the complete graph (no self-loops) with covalent bond types as edge attributes
     
@@ -215,6 +215,9 @@ def from_molecule_to_graph(mol:Chem.rdchem.Mol, y:torch.Tensor, pos:torch.Tensor
     second_node_index = []
     edge_type=[]
     
+    N = mol.GetNumAtoms()
+
+    
     for i in range(N):
         for j in range(N):
             if i!=j:
@@ -226,11 +229,21 @@ def from_molecule_to_graph(mol:Chem.rdchem.Mol, y:torch.Tensor, pos:torch.Tensor
     edge_type = torch.tensor(edge_type, dtype=torch.long)
     edge_attr = F.one_hot(edge_type, num_classes=len(bonds)+1).to(torch.float)
     
+    
+    return edge_index,edge_attr
+
+
+
+def from_molecule_to_graph(mol:Chem.rdchem.Mol, y:torch.Tensor, pos:torch.Tensor, name:str, idx:int, data: Union[str,Structure]) -> Data:
+    
+    x,z =  node_features(mol=mol)
+    
+    edge_index, edge_attr = edge_features(mol=mol)
+    
     #x1 = F.one_hot(torch.tensor(type_idx), num_classes=len(types))
     
     # 5. Bundling everything into the Data (graph) type
-    
-    x = torch.tensor([atomic_number, aromatic, sp, sp2, sp3],dtype=torch.float).t().contiguous()
+
     #x = torch.cat([x1.to(torch.float), x2], dim=-1)
     
     if isinstance(data, str):
@@ -239,7 +252,8 @@ def from_molecule_to_graph(mol:Chem.rdchem.Mol, y:torch.Tensor, pos:torch.Tensor
     elif isinstance(data, Structure):
         (row, col) = edge_index
         ## getting distances from distance matrix that is aware of mirror images
-        dist = torch.tensor(data.distance_matrix[row,col])
+        distance_matrix = data.distance_matrix
+        dist = torch.tensor(distance_matrix[row,col])
         graph= Data(x=x, z=z,edge_index=edge_index, edge_attr=edge_attr, y=y, name=name, idx=idx, dist=dist)
 
     
@@ -256,9 +270,12 @@ def data_to_graph(data:Union[str,Structure], y:torch.Tensor, idx: int, seed:int,
         mol, pos = from_smiles_to_molecule_and_coordinates(smile=data, seed=seed, add_hydrogen=add_hydrogen)
         
     elif isinstance(data,Structure):
+        
+        if add_hydrogen:
+            raise ValueError("Explicit hydrogens is not yet supported for crystallographic data")
         name = data.formula
         ## no need for 3D coordinate generation as crystallographic structure is given
-        mol = from_structure_to_molecule(struct=data, add_hydrogen=add_hydrogen)
+        mol = from_structure_to_molecule(struct=data)
         ## we still initialize pos for compatibility with functions
         pos = None
     
