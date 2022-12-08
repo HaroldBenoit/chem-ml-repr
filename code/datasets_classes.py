@@ -139,7 +139,29 @@ class MUVDataset(UcrDataset):
 
         super().__init__(root=root, filename = filename, raw_url=raw_url, data_column_name=data_column_name, target_names= MUVDataset.target_names,
                      add_hydrogen=add_hydrogen, seed=seed, transform=transform, pre_transform=pre_transform, pre_filter=pre_filter)
+        
+        
+        
+class MatBenchMpIsMetal(UcrDataset):
+    """Load matchbench_mp_gap dataset
+        The raw data contains a compressed json file containing informations like
+    """
     
+    target_names = ['is_metal']
+    is_classification={target:True for target in target_names}
+    
+    def __init__(self, root: str, add_hydrogen=False, seed=GLOBAL_SEED, transform: Optional[Callable] = None,
+                 pre_transform: Optional[Callable] = None,
+                 pre_filter: Optional[Callable] = None):
+        
+        filename="matbench_mp_is_metal.json.gz"
+        raw_url= "https://ml.materialsproject.org/projects/matbench_mp_is_metal.json.gz"
+        data_column_name="data"
+
+        super().__init__(root=root, filename = filename, raw_url=raw_url, data_column_name=data_column_name, target_names= MatBenchMpIsMetal.target_names,
+                     add_hydrogen=add_hydrogen, seed=seed, transform=transform, pre_transform=pre_transform, pre_filter=pre_filter)
+        
+        
 
 class BaceDataset(InMemoryUcrDataset):
     """ 
@@ -227,13 +249,13 @@ class BBBPDataset(InMemoryUcrDataset):
 
 
 
-dataset_dict= {"qm9": QM9Dataset, "bace":BaceDataset, "bbbp": BBBPDataset, "freesolv":FreeSolvDataset, "muv":MUVDataset}
+dataset_dict= {"qm9": QM9Dataset, "bace":BaceDataset, "bbbp": BBBPDataset, "freesolv":FreeSolvDataset, "muv":MUVDataset, "mp_is_metal":MatBenchMpIsMetal}
 
 
 def main():
         
     parser = argparse.ArgumentParser(prog="DatasetProcessing", description="Given the dataset name and root path, processes the dataset according to our method")
-    parser.add_argument('--dataset', help=f"Name of the dataset to process")
+    parser.add_argument('--dataset', help=f"Name of the dataset to process. List of available datasets {list(dataset_dict.keys())}")
     parser.add_argument('--root', help="path to the root directory where the raw and processed data will be stored")
     parser.add_argument('--hydrogen', action='store_true', help="If flag specified, hydrogens are explicitly described in graph representation.")
     parser.add_argument('--seed', default=GLOBAL_SEED, type=int, help="seed for randomness")
@@ -246,8 +268,6 @@ def main():
         dataset_class= dataset_dict[args.dataset]
         #forcing processing of dataset by calling it
         dataset = dataset_class(root=args.root, add_hydrogen=args.hydrogen, seed=args.seed)
-
-
         print(f"Available targets for {args.dataset} are: {dataset_class.target_names}")
     else:
         raise ValueError(f"Given dataset name {args.dataset} is not in the list of available datasets {list(dataset_dict.keys())}")
