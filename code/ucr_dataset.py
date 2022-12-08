@@ -117,6 +117,7 @@ class UcrDataset(Dataset):
             target = torch.tensor([data_list[1] for data_list in data[self.data_column_name]])
     
 
+
         # dashboard: http://127.0.0.1:8787/status
         # setting up the local cluster not to overuse all the cores
         #cpu_count = os.cpu_count()
@@ -136,11 +137,11 @@ class UcrDataset(Dataset):
         failed_counter = 0
         data_list = []
         # iterating over the given range
-        data_len = len(df)
+        data_len = len(original_data)
         step = data_len//self.split_factor 
 
         ## necessary data to log so that we can tell which idx data goes into which split at which point
-        aux_data = {"old_data_len":len(df), "step": step, }
+        aux_data = {"old_data_len":data_len, "step": step, }
         
         for i in tqdm(range(self.split_factor)):
             
