@@ -10,9 +10,8 @@ from torch_geometric.data import (
 from typing import Tuple, List
 import pathlib
 import argparse
-from in_mem_smiles_dataset import InMemorySmilesDataset
-
-from smiles_dataset import SmilesDataset
+from in_mem_ucr_dataset import InMemoryUcrDataset
+from ucr_dataset import UcrDataset
 
 
 from typing import Callable, List, Optional, Tuple
@@ -57,7 +56,7 @@ GLOBAL_SEED=0x00ffd
 
 
 
-class QM9Dataset(SmilesDataset):
+class QM9Dataset(UcrDataset):
     """Load QM9 dataset
     QM9 is a comprehensive dataset that provides geometric, energetic,
     electronic and thermodynamic properties for a subset of GDB-17
@@ -113,7 +112,7 @@ class QM9Dataset(SmilesDataset):
 
 
 
-class MUVDataset(SmilesDataset):
+class MUVDataset(UcrDataset):
     """Load MUV dataset
     The Maximum Unbiased Validation (MUV) group is a benchmark dataset selected
     from PubChem BioAssay by applying a refined nearest neighbor analysis.
@@ -142,7 +141,7 @@ class MUVDataset(SmilesDataset):
                      add_hydrogen=add_hydrogen, seed=seed, transform=transform, pre_transform=pre_transform, pre_filter=pre_filter)
     
 
-class BaceDataset(InMemorySmilesDataset):
+class BaceDataset(InMemoryUcrDataset):
     """ 
     Load BACE dataset
     The BACE dataset provides quantitative IC50 and qualitative (binary label)
@@ -172,7 +171,7 @@ class BaceDataset(InMemorySmilesDataset):
                          target_names= BaceDataset.target_names,add_hydrogen=add_hydrogen, seed=seed, transform=transform, pre_transform=pre_transform, pre_filter=pre_filter)
         
         
-class FreeSolvDataset(InMemorySmilesDataset):
+class FreeSolvDataset(InMemoryUcrDataset):
     """Load Freesolv dataset
     The FreeSolv dataset is a collection of experimental and calculated hydration
     free energies for small molecules in water, along with their experiemental values.
@@ -197,7 +196,7 @@ class FreeSolvDataset(InMemorySmilesDataset):
                          target_names= FreeSolvDataset.target_names,add_hydrogen=add_hydrogen, seed=seed, transform=transform, pre_transform=pre_transform, pre_filter=pre_filter)
         
 
-class BBBPDataset(InMemorySmilesDataset):
+class BBBPDataset(InMemoryUcrDataset):
     """
     Load BBBP dataset
     The blood-brain barrier penetration (BBBP) dataset is designed for the

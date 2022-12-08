@@ -17,7 +17,7 @@ import gzip
 from pymatgen.core import Structure
 
 
-class InMemorySmilesDataset(InMemoryDataset):
+class InMemoryUcrDataset(InMemoryDataset):
     
     def __init__(self, root: str, filename:str, raw_url:str, data_column_name:str, target_names: List[str],add_hydrogen: bool, seed: int, transform: Optional[Callable],
                  pre_transform: Optional[Callable],

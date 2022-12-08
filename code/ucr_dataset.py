@@ -17,7 +17,7 @@ import gzip
 
 from pymatgen.core import Structure
 
-class SmilesDataset(Dataset):
+class UcrDataset(Dataset):
     """ Pytorch Geometric dataset for processing of smiles data, better suited for datasets that don't fit into RAM or take up a lot of space.
     """
     
