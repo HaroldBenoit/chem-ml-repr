@@ -234,16 +234,16 @@ def from_molecule_to_graph(mol:Chem.rdchem.Mol, y:torch.Tensor, pos:torch.Tensor
     #x = torch.cat([x1.to(torch.float), x2], dim=-1)
     
     if isinstance(data, str):
-        data = Data(x=x, z=z, pos=pos, edge_index=edge_index,
+        graph = Data(x=x, z=z, pos=pos, edge_index=edge_index,
                 edge_attr=edge_attr, y=y, name=name, idx=idx)
     elif isinstance(data, Structure):
         (row, col) = edge_index
         ## getting distances from distance matrix that is aware of mirror images
         dist = torch.tensor(data.distance_matrix[row,col])
-        data= Data(x=x, z=z,edge_index=edge_index, edge_attr=edge_attr, y=y, name=name, idx=idx, dist=dist)
+        graph= Data(x=x, z=z,edge_index=edge_index, edge_attr=edge_attr, y=y, name=name, idx=idx, dist=dist)
 
     
-    return data
+    return graph
     
 
 
@@ -265,15 +265,15 @@ def data_to_graph(data:Union[str,Structure], y:torch.Tensor, idx: int, seed:int,
     if mol is None:
         return None
     
-    data= from_molecule_to_graph(mol=mol, y=y, pos=pos, name=name, idx=idx)
+    graph= from_molecule_to_graph(mol=mol, y=y, pos=pos, name=name, idx=idx, data=data)
     
-    if pre_filter is not None and not pre_filter(data):
+    if pre_filter is not None and not pre_filter(graph):
         return None
     
     if pre_transform is not None:
-        data = pre_transform(data)
+        graph = pre_transform(graph)
         
-    return data    
+    return graph    
 
 
 
