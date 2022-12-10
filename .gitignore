@@ -7,6 +7,7 @@ results/*
 
 # Hiding data folders
 data/*
+old_data/*
 # hiding tuning checkpoints
 .lr_find*
 

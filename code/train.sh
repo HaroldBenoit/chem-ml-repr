@@ -4,7 +4,12 @@
 
 #qm9 = mu alpha  homo  lumo  gap  r2  zpve  cv u0  u298 h298 g298
 
-for name in mu alpha  homo  lumo  gap  r2  zpve  cv u0  u298 h298 g298
+for name in zpve  cv u0  u298 h298 g298
 do
     python3 training.py --target $name --dataset qm9  --root ../data/qm9  --cluster --hydrogen
+done
+
+for name in mu alpha  homo  lumo  gap  r2  zpve  cv u0  u298 h298 g298
+do
+    python3 training.py --target $name --dataset qm9  --root ../data/qm9  --cluster --hydrogen --weighted
 done
