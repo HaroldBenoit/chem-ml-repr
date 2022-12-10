@@ -1,4 +1,4 @@
-from code.ucr_lightning_data_module import UcrDataModule
+from ucr_lightning_data_module import UcrDataModule
 from lightning_model import LightningClassicGNN
 import pytorch_lightning as pl
 from pytorch_lightning.loggers import WandbLogger
