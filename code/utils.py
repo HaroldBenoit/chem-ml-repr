@@ -195,8 +195,11 @@ def from_molecule_to_graph(mol:Chem.rdchem.Mol, y:torch.Tensor, pos:torch.Tensor
         (row, col) = edge_index
         ## getting distances from distance matrix that is aware of mirror images
         distance_matrix = data.distance_matrix
-        dist = torch.tensor(distance_matrix[row,col])
-        graph= Data(x=x, z=z,edge_index=edge_index, edge_attr=edge_attr, y=y, name=name, idx=idx, dist=dist)
+        dist = torch.tensor(distance_matrix[row,col],dtype=torch.float)
+        if dist is None or distance_matrix is None:
+            return None
+        else:
+            graph= Data(x=x, z=z,edge_index=edge_index, edge_attr=edge_attr, y=y, name=name, idx=idx, dist=dist)
 
     
     return graph
