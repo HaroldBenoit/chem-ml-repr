@@ -143,8 +143,8 @@ class MUVDataset(UcrDataset):
         
         
 class MatBenchMpIsMetal(UcrDataset):
-    """Load matchbench_mp_gap dataset
-        The raw data contains a compressed json file containing informations like
+    """Load matchbench_mp_is_metal dataset
+        The raw data contains a compressed json file containing informations on structure and target
     """
     
     target_names = ['is_metal']
@@ -160,6 +160,27 @@ class MatBenchMpIsMetal(UcrDataset):
 
         super().__init__(root=root, filename = filename, raw_url=raw_url, data_column_name=data_column_name, target_names= MatBenchMpIsMetal.target_names,
                      add_hydrogen=add_hydrogen, seed=seed, transform=transform, pre_transform=pre_transform, pre_filter=pre_filter)
+        
+        
+class MatBenchMpGap(UcrDataset):
+    """Load matchbench_mp_gap dataset
+        The raw data contains a compressed json file containing informations on structure and target
+    """
+    
+    target_names = ['gap']
+    is_classification={target:False for target in target_names}
+    
+    def __init__(self, root: str, add_hydrogen=False, seed=GLOBAL_SEED, transform: Optional[Callable] = None,
+                 pre_transform: Optional[Callable] = None,
+                 pre_filter: Optional[Callable] = None):
+        
+        filename="matbench_mp_gap.json.gz"
+        raw_url= "https://ml.materialsproject.org/projects/matbench_mp_gap.json.gz"
+        data_column_name="data"
+
+        super().__init__(root=root, filename = filename, raw_url=raw_url, data_column_name=data_column_name, target_names= MatBenchMpGap.target_names,
+                     add_hydrogen=add_hydrogen, seed=seed, transform=transform, pre_transform=pre_transform, pre_filter=pre_filter)
+        
         
         
 

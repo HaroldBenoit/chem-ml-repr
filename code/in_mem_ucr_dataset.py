@@ -93,7 +93,7 @@ class InMemoryUcrDataset(InMemoryDataset):
             data = json.loads(json_str) 
             
             original_data = [Structure.from_dict(data_list[0]) for data_list in data[self.data_column_name]]
-            target = torch.tensor([data_list[1] for data_list in data[self.data_column_name]])
+            target = torch.tensor([data_list[1] for data_list in data[self.data_column_name]]).view(-1, len(self.target_names)) ## shaping is necessary 
 
             
     
