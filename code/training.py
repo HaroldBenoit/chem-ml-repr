@@ -1,4 +1,4 @@
-from smiles_lightning_data_module import SmilesDataModule
+from smiles_lightning_data_module import UcrDataModule
 from lightning_model import LightningClassicGNN
 import pytorch_lightning as pl
 from pytorch_lightning.loggers import WandbLogger
@@ -81,7 +81,7 @@ def main():
     
     dataset = dataset_class(root=root, add_hydrogen=args.hydrogen,transform=transforms)
     # from torch dataset, create lightning data module to make sure training splits are always done the same ways
-    data_module = SmilesDataModule(dataset=dataset, seed=seed)
+    data_module = UcrDataModule(dataset=dataset, seed=seed)
 
     if debug:
         pdb.set_trace(header="After dataset transform")
