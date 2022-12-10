@@ -158,7 +158,12 @@ def from_structure_to_molecule(struct:Structure) -> Chem.rdchem.Mol:
 
     #then the following conversion : pymatgen.Structure -> pymatgen.Molecule -> pybel_mol -> mol file (to retain 3D information) ->  rdkit molecule
     mol = Molecule(species=struct.species, coords=struct.cart_coords)
-    adaptor = BabelMolAdaptor(mol).pybel_mol
+    try:
+        adaptor = BabelMolAdaptor(mol).pybel_mol
+    except:
+        print("unable to convert from pymatgen structure")
+        return None
+    
 
     #ideally, we would like to give the correct 3D coordinates to the molecule, so we use .mol file
     mol_file = adaptor.write('mol')
