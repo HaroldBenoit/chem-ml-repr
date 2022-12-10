@@ -200,6 +200,9 @@ def from_molecule_to_graph(mol:Chem.rdchem.Mol, y:torch.Tensor, pos:torch.Tensor
             return None
         else:
             graph= Data(x=x, z=z,edge_index=edge_index, edge_attr=edge_attr, y=y, name=name, idx=idx, dist=dist)
+            
+    if isinstance(data,Structure) and not(hasattr(graph, 'dist')):
+        return None
 
     
     return graph
