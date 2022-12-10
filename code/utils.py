@@ -10,7 +10,7 @@ from rdkit import Chem
 from rdkit.Chem import AllChem
 from rdkit.Chem import rdDistGeom
 
-from features import edge_features, node_features
+from features import edge_features, node_features, pymatgen_node_features
 
 ## removing warnings
 from rdkit import RDLogger
@@ -25,7 +25,7 @@ from tqdm import tqdm
 from torch_geometric.data import (
     Data)
 
-from pymatgen.core import Structure, Lattice, Molecule
+from pymatgen.core import Structure, Element, Molecule
 from pymatgen.io.babel import BabelMolAdaptor
 
 
@@ -178,7 +178,7 @@ def from_structure_to_molecule(struct:Structure) -> Chem.rdchem.Mol:
 
 def from_molecule_to_graph(mol:Chem.rdchem.Mol, y:torch.Tensor, pos:torch.Tensor, name:str, idx:int, data: Union[str,Structure]) -> Data:
     
-    x,z =  node_features(mol=mol)
+    x,z =  pymatgen_node_features(mol=mol)
     
     edge_index, edge_attr = edge_features(mol=mol)
     

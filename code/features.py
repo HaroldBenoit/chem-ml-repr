@@ -10,6 +10,10 @@ from typing import Tuple, List, Dict, Union
 from rdkit import Chem
 from rdkit.Chem import AllChem
 
+from pymatgen.core import Molecule
+from pymatgen.io.babel import BabelMolAdaptor
+
+
 ## removing warnings
 from rdkit import RDLogger
 RDLogger.DisableLog('rdApp.*')
@@ -18,7 +22,6 @@ RDLogger.DisableLog('rdApp.*')
 import torch
 import torch.nn.functional as F
 from collections import defaultdict
-
 
 
 def node_features(mol:Chem.rdchem.Mol):
@@ -37,6 +40,40 @@ def node_features(mol:Chem.rdchem.Mol):
         sp2.append(1 if hybridization == HybridizationType.SP2 else 0)
         sp3.append(1 if hybridization == HybridizationType.SP3 else 0)
     x = torch.tensor([atomic_number, aromatic, sp, sp2, sp3],dtype=torch.float).t().contiguous()
+    z = torch.tensor(atomic_number, dtype=torch.long)
+    
+    return x,z
+
+
+def from_rdkit_mol_to_pymatgen_mol(mol: Chem.rdchem.Mol) -> Molecule:
+    ## expects an rdkit mol with 3D conformer
+
+    mol_file = Chem.MolToMolBlock(mol)
+    pymatgen_mol = BabelMolAdaptor.from_string(string_data=mol_file, file_format="mol").pymatgen_mol
+    
+    return pymatgen_mol
+
+
+
+
+def pymatgen_node_features(mol: Chem.rdchem.Mol) -> Tuple[torch.Tensor, torch.Tensor]:
+    
+    features = ["atomic_radius","atomic_mass","average_ionic_radius", "average_cationic_radius", "average_anionic_radius", "max_oxidation_state",
+            "min_oxidation_state", "row","group", "is_noble_gas", "is_post_transition_metal", "is_rare_earth_metal", "is_metal", "is_metalloid",
+            "is_alkali", "is_alkaline", "is_halogen","is_chalcogen", "is_lanthanoid","is_actinoid", "is_quadrupolar"] 
+    
+    features_dict = {feature:[] for feature in features}
+    
+    pymatgen_mol = from_rdkit_mol_to_pymatgen_mol(mol=mol)
+    atomic_number = []
+    for elem in pymatgen_mol.species:
+        atomic_number.append(elem.Z)
+        for feature in features:
+            features_dict[feature].append(getattr(elem,feature))
+            
+    all_features = [feature_list for feature_list in features_dict.values()]
+    x= [atomic_number] + all_features
+    x = torch.tensor(x,dtype=torch.float).t().contiguous()
     z = torch.tensor(atomic_number, dtype=torch.long)
     
     return x,z
