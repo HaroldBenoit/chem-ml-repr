@@ -23,12 +23,13 @@ class Distance(BaseTransform):
         
         atom_number_to_radius: (Dict[str,float],optional): Dictionary containig the atomic radius (in Angstrom) given an atomic number.
     """
-    def __init__(self, norm: bool=True, max_value: float=None, cat: bool=True, weighted: bool=True, atom_number_to_radius: Dict[str,float]=None ):
+    def __init__(self, norm: bool=True, max_value: float=None, cat: bool=True, weighted: bool=True, atom_number_to_radius: Dict[str,float]=None, dist_present=False):
         self.norm = norm
         self.max = max_value
         self.cat = cat
         self.weighted=weighted
         self.atom_number_to_radius= atom_number_to_radius
+        self.dist_present = dist_present
         
         if self.weighted and self.atom_number_to_radius is None:
             raise ValueError("If distance is weighted, the atomic radius dictionary must be provided")
@@ -37,15 +38,16 @@ class Distance(BaseTransform):
 
 
         pseudo = data.edge_attr
-        ## in the case of smiles molecules, we need to compute distances
-        ## we need to check for non-presence of dist instead of presence of pos because Data class has always pos attributes
-        if not(hasattr(data,'dist')):
-            (row, col), pos = data.edge_index, data.pos
-            dist = torch.norm(pos[col] - pos[row], p=2, dim=-1).view(-1, 1)
-        else:
+            
+        if self.dist_present or hasattr(data,'dist'):
             ## in the case of pymatgen structures, we have already computed beforehand as we need to be careful with mirror images
             ## this was done using struct.distance_matrix (which gives Euclidean distance)
-            dist = data.dist
+            dist = data.dist.view(-1,1)
+        else:
+            ## in the case of smiles molecules, we need to compute distances
+            ## we need to check for non-presence of dist instead of presence of pos because Data class has always pos attributes
+            (row, col), pos = data.edge_index, data.pos
+            dist = torch.norm(pos[col] - pos[row], p=2, dim=-1).view(-1, 1)
         
         ## must weigh distance before normalizing as units [Angstrom] need to match
         if self.weighted:

@@ -32,6 +32,8 @@ def main():
     parser.add_argument('--dataset', required=True, help="Dataset name")
     parser.add_argument('--target', required=True, help="Target name i.e. inferred value in dataset")
     parser.add_argument('--weighted', action="store_true", help="If flag specified, make the edge distances weighted by atomic radius")
+    parser.add_argument('--dist_present', action="store_true", help="If flag specified, dist has been computed")
+
     
     ##training
     parser.add_argument('--epochs', default=100)
@@ -43,6 +45,7 @@ def main():
     root= args.root
     dataset=args.dataset
     target=args.target
+    dist_present = args.dist_present
 
     seed=42
     
@@ -76,7 +79,7 @@ def main():
     weighted = args.weighted
     atom_number_to_radius = None if not(weighted) else torch.load("../important_data/atom_number_to_radius.pt")
     
-    distance = Distance(weighted=weighted,atom_number_to_radius=atom_number_to_radius)
+    distance = Distance(weighted=weighted,atom_number_to_radius=atom_number_to_radius, dist_present=dist_present)
     transforms=Compose([filter_target(target_names=dataset_class.target_names, target=target), distance])
     
     dataset = dataset_class(root=root, add_hydrogen=args.hydrogen,transform=transforms)
