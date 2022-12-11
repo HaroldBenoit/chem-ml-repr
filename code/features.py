@@ -46,10 +46,14 @@ def node_features(mol:Chem.rdchem.Mol):
 
 
 def from_rdkit_mol_to_pymatgen_mol(mol: Chem.rdchem.Mol) -> Molecule:
-    ## expects an rdkit mol with 3D conformer
-
-    mol_file = Chem.MolToMolBlock(mol)
-    pymatgen_mol = BabelMolAdaptor.from_string(string_data=mol_file, file_format="mol").pymatgen_mol
+    
+    try:
+        ## expects an rdkit mol with 3D conformer
+        mol_file = Chem.MolToMolBlock(mol)
+        pymatgen_mol = BabelMolAdaptor.from_string(string_data=mol_file, file_format="mol").pymatgen_mol
+    except:
+        return None
+        
     
     return pymatgen_mol
 
@@ -65,6 +69,10 @@ def pymatgen_node_features(mol: Chem.rdchem.Mol) -> Tuple[torch.Tensor, torch.Te
     features_dict = {feature:[] for feature in features}
     
     pymatgen_mol = from_rdkit_mol_to_pymatgen_mol(mol=mol)
+    
+    if pymatgen_mol is None:
+        return None,None
+    
     atomic_number = []
     for elem in pymatgen_mol.species:
         atomic_number.append(elem.Z)

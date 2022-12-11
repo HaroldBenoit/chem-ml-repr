@@ -187,34 +187,37 @@ def from_structure_to_molecule(struct:Structure) -> Chem.rdchem.Mol:
 
 def from_molecule_to_graph(mol:Chem.rdchem.Mol, y:torch.Tensor, pos:torch.Tensor, name:str, idx:int, data: Union[str,Structure]) -> Data:
     
-    x,z =  pymatgen_node_features(mol=mol)
-    
-    edge_index, edge_attr = edge_features(mol=mol)
-    
-    #x1 = F.one_hot(torch.tensor(type_idx), num_classes=len(types))
-    
-    # 5. Bundling everything into the Data (graph) type
+    try:
+        x,z =  pymatgen_node_features(mol=mol)
 
-    #x = torch.cat([x1.to(torch.float), x2], dim=-1)
-    
-    if isinstance(data, str):
-        graph = Data(x=x, z=z, pos=pos, edge_index=edge_index,
-                edge_attr=edge_attr, y=y, name=name, idx=idx)
-    elif isinstance(data, Structure):
-        (row, col) = edge_index
-        ## getting distances from distance matrix that is aware of mirror images
-        distance_matrix = data.distance_matrix
-        dist = torch.tensor(distance_matrix[row,col],dtype=torch.float)
-        if dist is None or distance_matrix is None:
+        edge_index, edge_attr = edge_features(mol=mol)
+
+        #x1 = F.one_hot(torch.tensor(type_idx), num_classes=len(types))
+
+        # 5. Bundling everything into the Data (graph) type
+
+        #x = torch.cat([x1.to(torch.float), x2], dim=-1)
+
+        if isinstance(data, str):
+            graph = Data(x=x, z=z, pos=pos, edge_index=edge_index,
+                    edge_attr=edge_attr, y=y, name=name, idx=idx)
+        elif isinstance(data, Structure):
+            (row, col) = edge_index
+            ## getting distances from distance matrix that is aware of mirror images
+            distance_matrix = data.distance_matrix
+            dist = torch.tensor(distance_matrix[row,col],dtype=torch.float)
+            if dist is None or distance_matrix is None:
+                return None
+            else:
+                graph= Data(x=x, z=z,edge_index=edge_index, edge_attr=edge_attr, y=y, name=name, idx=idx, dist=dist)
+
+        if isinstance(data,Structure) and not(hasattr(graph, 'dist')):
             return None
-        else:
-            graph= Data(x=x, z=z,edge_index=edge_index, edge_attr=edge_attr, y=y, name=name, idx=idx, dist=dist)
-            
-    if isinstance(data,Structure) and not(hasattr(graph, 'dist')):
-        return None
 
-    
-    return graph
+
+        return graph
+    except:
+        return None
     
 
 
