@@ -164,15 +164,18 @@ def from_structure_to_molecule(struct:Structure) -> Chem.rdchem.Mol:
         print("unable to convert from pymatgen structure")
         return None
     
+    try:
+        #ideally, we would like to give the correct 3D coordinates to the molecule, so we use .mol file
+        mol_file = adaptor.write('mol')
 
-    #ideally, we would like to give the correct 3D coordinates to the molecule, so we use .mol file
-    mol_file = adaptor.write('mol')
+        new_mol = Chem.MolFromMolBlock(mol_file, sanitize=False)
+        problems = Chem.DetectChemistryProblems(new_mol)
+        len_problems=len(problems)
 
-    new_mol = Chem.MolFromMolBlock(mol_file, sanitize=False)
-    problems = Chem.DetectChemistryProblems(new_mol)
-    len_problems=len(problems)
-    
-    if len_problems > 0:
+        if len_problems > 0:
+            return None
+    except:
+        print("unable to convert to rdkit molecule")
         return None
     
     return new_mol
