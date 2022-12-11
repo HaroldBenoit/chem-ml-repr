@@ -244,6 +244,14 @@ def data_to_graph(data:Union[str,Structure], y:torch.Tensor, idx: int, seed:int,
     
     graph= from_molecule_to_graph(mol=mol, y=y, pos=pos, name=name, idx=idx, data=data)
     
+    ##really check whether distances have been computed well
+    if isinstance(data,Structure):
+        try:
+            dist = graph.dist
+        except:
+            ## no dist attributes
+            return None
+    
     if pre_filter is not None and not pre_filter(graph):
         return None
     
