@@ -32,6 +32,7 @@ def main():
     parser.add_argument('--dataset', required=True, help="Dataset name")
     parser.add_argument('--target', required=True, help="Target name i.e. inferred value in dataset")
     parser.add_argument('--weighted', action="store_true", help="If flag specified, make the edge distances weighted by atomic radius")
+    parser.add_argument('--no_distance', action='store_true',help="If flag specified, don't compute distance")
     parser.add_argument('--dist_present', action="store_true", help="If flag specified, dist has been computed")
 
     
@@ -46,6 +47,7 @@ def main():
     dataset=args.dataset
     target=args.target
     dist_present = args.dist_present
+    no_distance = args.no_distance
 
     seed=42
     
@@ -79,8 +81,13 @@ def main():
     weighted = args.weighted
     atom_number_to_radius = None if not(weighted) else torch.load("../important_data/atom_number_to_radius.pt")
     
-    distance = Distance(weighted=weighted,atom_number_to_radius=atom_number_to_radius, dist_present=dist_present)
-    transforms=Compose([filter_target(target_names=dataset_class.target_names, target=target), distance])
+    if not(no_distance):
+        distance = Distance(weighted=weighted,atom_number_to_radius=atom_number_to_radius, dist_present=dist_present)
+        transforms=Compose([filter_target(target_names=dataset_class.target_names, target=target), distance])
+    else:
+        transforms = filter_target(target_names=dataset_class.target_names, target=target)
+        
+        
     
     dataset = dataset_class(root=root, add_hydrogen=args.hydrogen,transform=transforms)
     # from torch dataset, create lightning data module to make sure training splits are always done the same ways
