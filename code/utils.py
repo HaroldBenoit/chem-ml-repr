@@ -192,12 +192,6 @@ def from_molecule_to_graph(mol:Chem.rdchem.Mol, y:torch.Tensor, pos:torch.Tensor
 
         edge_index, edge_attr = edge_features(mol=mol)
 
-        #x1 = F.one_hot(torch.tensor(type_idx), num_classes=len(types))
-
-        # 5. Bundling everything into the Data (graph) type
-
-        #x = torch.cat([x1.to(torch.float), x2], dim=-1)
-
         if isinstance(data, str):
             graph = Data(x=x, z=z, pos=pos, edge_index=edge_index,
                     edge_attr=edge_attr, y=y, name=name, idx=idx)
