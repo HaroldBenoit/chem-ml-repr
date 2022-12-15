@@ -191,7 +191,7 @@ class UcrDataset(Dataset):
         aux_data["total_num_skipped"]= failed_counter
             
                    
-        print(f"NUM MOLECULES SKIPPED {failed_counter}, {failed_counter/(data_len):.2f}% of the data")
+        print(f"NUM MOLECULES SKIPPED {failed_counter}, {(failed_counter/(data_len)*100):.2f}% of the data")
             
         # saving the auxiliary data
         torch.save(aux_data, osp.join(self.processed_dir, "aux_data.pt"))

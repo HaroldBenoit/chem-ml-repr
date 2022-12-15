@@ -10,7 +10,8 @@ from typing import Tuple, List, Dict, Union
 from rdkit import Chem
 from rdkit.Chem import AllChem
 
-from pymatgen.core import Molecule
+from pymatgen.core import Molecule, Structure, Element
+from pymatgen.core.bonds import CovalentBond
 from pymatgen.io.babel import BabelMolAdaptor
 
 
@@ -23,26 +24,28 @@ import torch
 import torch.nn.functional as F
 from collections import defaultdict
 
+AVERAGE_ELECTRONEGATIVITY=1.713
 
-def node_features(mol:Chem.rdchem.Mol):
-    # 3. QM9 featurization of nodes
-    N = mol.GetNumAtoms()
-    atomic_number = []
-    aromatic = []
-    sp = []
-    sp2 = []
-    sp3 = []
-    for atom in mol.GetAtoms():
-        atomic_number.append(atom.GetAtomicNum())
-        aromatic.append(1 if atom.GetIsAromatic() else 0)
-        hybridization = atom.GetHybridization()
-        sp.append(1 if hybridization == HybridizationType.SP else 0)
-        sp2.append(1 if hybridization == HybridizationType.SP2 else 0)
-        sp3.append(1 if hybridization == HybridizationType.SP3 else 0)
-    x = torch.tensor([atomic_number, aromatic, sp, sp2, sp3],dtype=torch.float).t().contiguous()
-    z = torch.tensor(atomic_number, dtype=torch.long)
-    
-    return x,z
+
+#def node_features(mol:Chem.rdchem.Mol):
+#    # 3. QM9 featurization of nodes
+#    N = mol.GetNumAtoms()
+#    atomic_number = []
+#    aromatic = []
+#    sp = []
+#    sp2 = []
+#    sp3 = []
+#    for atom in mol.GetAtoms():
+#        atomic_number.append(atom.GetAtomicNum())
+#        aromatic.append(1 if atom.GetIsAromatic() else 0)
+#        hybridization = atom.GetHybridization()
+#        sp.append(1 if hybridization == HybridizationType.SP else 0)
+#        sp2.append(1 if hybridization == HybridizationType.SP2 else 0)
+#        sp3.append(1 if hybridization == HybridizationType.SP3 else 0)
+#    x = torch.tensor([atomic_number, aromatic, sp, sp2, sp3],dtype=torch.float).t().contiguous()
+#    z = torch.tensor(atomic_number, dtype=torch.long)
+#    
+#    return x,z
 
 
 def from_rdkit_mol_to_pymatgen_mol(mol: Chem.rdchem.Mol) -> Molecule:
@@ -60,31 +63,104 @@ def from_rdkit_mol_to_pymatgen_mol(mol: Chem.rdchem.Mol) -> Molecule:
 
 
 
-def pymatgen_node_features(mol: Chem.rdchem.Mol) -> Tuple[torch.Tensor, torch.Tensor]:
+def pymatgen_node_features(data: Union[Chem.rdchem.Mol,Structure]) -> Tuple[torch.Tensor, torch.Tensor]:
     
+    ## transform molecule or structure into list of atomic elements
+    if isinstance(data, Chem.rdchem.Mol):
+        elem_list = []
+        for atom in data.GetAtoms():
+            z = atom.GetAtomicNum()
+            elem= Element.from_Z(z)
+            elem_list.append(elem)
+        
+    elif isinstance(data, Structure):
+        elem_list = data.species
+        
+    ## defines elemental features    
     features = ["atomic_radius","atomic_mass","average_ionic_radius", "average_cationic_radius", "average_anionic_radius", "max_oxidation_state",
             "min_oxidation_state", "row","group", "is_noble_gas", "is_post_transition_metal", "is_rare_earth_metal", "is_metal", "is_metalloid",
             "is_alkali", "is_alkaline", "is_halogen","is_chalcogen", "is_lanthanoid","is_actinoid", "is_quadrupolar"] 
     
     features_dict = {feature:[] for feature in features}
     
-    pymatgen_mol = from_rdkit_mol_to_pymatgen_mol(mol=mol)
-    
-    if pymatgen_mol is None:
-        return None,None
-    
+
+
     atomic_number = []
-    for elem in pymatgen_mol.species:
+    electronegativity = []
+    for elem in elem_list:
         atomic_number.append(elem.Z)
+        #X = elem.X
+        #if np.isnan(x):
+        #    X = AVERAGE_ELECTRONEGATIVITY
+        
+        #electronegativity.append(X)
         for feature in features:
             features_dict[feature].append(getattr(elem,feature))
-            
+    
+    
+    
     all_features = [feature_list for feature_list in features_dict.values()]
     x= [atomic_number] + all_features
     x = torch.tensor(x,dtype=torch.float).t().contiguous()
     z = torch.tensor(atomic_number, dtype=torch.long)
     
     return x,z
+
+
+
+def edge_features(data: Union[Chem.rdchem.Mol,Structure]) -> Tuple[torch.Tensor, torch.Tensor]:
+    
+    #4. Create the complete graph (no self-loops) with covalent bond types as edge attributes
+    
+    bonds_type = {"no-bond":0,"single": 1, "no-data": 2}
+
+    if isinstance(data, Chem.rdchem.Mol):
+        mol=data
+            # getting all covalent bond types
+        bonds_dict = {(bond.GetBeginAtomIdx(),bond.GetEndAtomIdx()):bonds_type["single"] for bond in mol.GetBonds()}
+        
+        # returns 0 for all pairs of atoms with no covalent bond 
+        bonds_dict = defaultdict(int, bonds_dict)
+        N = mol.GetNumAtoms()
+        
+        
+    elif isinstance(data, Structure):
+        ## we can compute whether there's a bond using pymatgen
+        struct = data
+        N = len(struct.species)
+
+    # making the complete graph
+    first_node_index = []
+    second_node_index = []
+    edge_type=[]
+        
+    ## building complete graph edge indexes
+    for i in range(N):
+        for j in range(N):
+            if i!=j:
+                first_node_index.append(i)
+                second_node_index.append(j)
+                
+                if isinstance(data, Chem.rdchem.Mol):
+                    edge_type.append(bonds_dict[(i,j)] if i < j else bonds_dict[(j,i)])
+                    
+                elif isinstance(data, Structure):
+                    site1 = struct.species[i]
+                    site2 = struct.species[j]
+                    try:
+                        is_bond = CovalentBond.is_bonded(site1=site1, site2=site2)
+                        
+                        edge_type.append(bonds_type['single'] if is_bond else bonds_type['no-bond'])
+                    except:
+                        #catch no data errors
+                        edge_type.append(bonds_type['no-data'])
+                
+                
+    edge_index = torch.tensor([first_node_index, second_node_index], dtype=torch.long)
+    edge_type = torch.tensor(edge_type, dtype=torch.long)
+    edge_attr = F.one_hot(edge_type, num_classes=len(bonds_type)).to(torch.float)
+    
+    return edge_index,edge_attr
 
 
 def global_molecule_features(mol:Chem.rdchem.Mol):
@@ -164,34 +240,3 @@ def global_molecule_features(mol:Chem.rdchem.Mol):
     return x
 
 
-def edge_features(mol:Chem.rdchem.Mol):
-    
-    # 4. Create the complete graph (no self-loops) with covalent bond types as edge attributes
-    
-    # must start at 1, as we will be using a defaultdict with default value of 0 (indicating no covalent bond)
-    bonds = {BT.SINGLE: 1, BT.DOUBLE: 2, BT.TRIPLE: 3, BT.AROMATIC: 4}
-    # getting all covalent bond types
-    bonds_dict = {(bond.GetBeginAtomIdx(),bond.GetEndAtomIdx()):bonds[bond.GetBondType()] for bond in mol.GetBonds()}
-    # returns 0 for all pairs of atoms with no covalent bond 
-    bonds_dict = defaultdict(int, bonds_dict)
-    # making the complete graph
-    first_node_index = []
-    second_node_index = []
-    edge_type=[]
-    
-    N = mol.GetNumAtoms()
-
-    
-    for i in range(N):
-        for j in range(N):
-            if i!=j:
-                first_node_index.append(i)
-                second_node_index.append(j)
-                edge_type.append(bonds_dict[(i,j)] if i < j else bonds_dict[(j,i)])
-
-    edge_index = torch.tensor([first_node_index, second_node_index], dtype=torch.long)
-    edge_type = torch.tensor(edge_type, dtype=torch.long)
-    edge_attr = F.one_hot(edge_type, num_classes=len(bonds)+1).to(torch.float)
-    
-    
-    return edge_index,edge_attr

@@ -10,7 +10,7 @@ from rdkit import Chem
 from rdkit.Chem import AllChem
 from rdkit.Chem import rdDistGeom
 
-from features import edge_features, node_features, pymatgen_node_features
+from features import edge_features, pymatgen_node_features
 
 ## removing warnings
 from rdkit import RDLogger
@@ -152,66 +152,79 @@ def from_smiles_to_molecule_and_coordinates(smile: str, seed:int, add_hydrogen: 
 
 
 
-def from_structure_to_molecule(struct:Structure) -> Chem.rdchem.Mol:
+##def from_structure_to_molecule(struct:Structure) -> Chem.rdchem.Mol:
+##
+##    # we will compute distances directly using the pymatgen structure
+##
+##    #then the following conversion : pymatgen.Structure -> pymatgen.Molecule -> pybel_mol -> mol file (to retain 3D information) ->  rdkit molecule
+##    mol = Molecule(species=struct.species, coords=struct.cart_coords)
+##    try:
+##        adaptor = BabelMolAdaptor(mol).pybel_mol
+##    except:
+##        print("unable to convert from pymatgen structure")
+##        return None
+##    
+##    try:
+##        #ideally, we would like to give the correct 3D coordinates to the molecule, so we use .mol file
+##        mol_file = adaptor.write('mol')
+##
+##        new_mol = Chem.MolFromMolBlock(mol_file, sanitize=False)
+##        problems = Chem.DetectChemistryProblems(new_mol)
+##        len_problems=len(problems)
+##
+##        if len_problems > 0:
+##            return None
+##    except:
+##        print("unable to convert to rdkit molecule")
+##        return None
+##    
+##    return new_mol
 
-    # we will compute distances directly using the pymatgen structure
 
-    #then the following conversion : pymatgen.Structure -> pymatgen.Molecule -> pybel_mol -> mol file (to retain 3D information) ->  rdkit molecule
-    mol = Molecule(species=struct.species, coords=struct.cart_coords)
-    try:
-        adaptor = BabelMolAdaptor(mol).pybel_mol
-    except:
-        print("unable to convert from pymatgen structure")
-        return None
+
+
+
+
+def from_molecule_to_graph(mol:Chem.rdchem.Mol, y:torch.Tensor, pos:torch.Tensor, name:str, idx:int) -> Data:
     
     try:
-        #ideally, we would like to give the correct 3D coordinates to the molecule, so we use .mol file
-        mol_file = adaptor.write('mol')
-
-        new_mol = Chem.MolFromMolBlock(mol_file, sanitize=False)
-        problems = Chem.DetectChemistryProblems(new_mol)
-        len_problems=len(problems)
-
-        if len_problems > 0:
-            return None
-    except:
-        print("unable to convert to rdkit molecule")
-        return None
-    
-    return new_mol
-
-
-
-
-
-
-def from_molecule_to_graph(mol:Chem.rdchem.Mol, y:torch.Tensor, pos:torch.Tensor, name:str, idx:int, data: Union[str,Structure]) -> Data:
-    
-    try:
-        x,z =  pymatgen_node_features(mol=mol)
-
-        edge_index, edge_attr = edge_features(mol=mol)
-
-        if isinstance(data, str):
-            graph = Data(x=x, z=z, pos=pos, edge_index=edge_index,
+        x,z =  pymatgen_node_features(data=mol)
+        edge_index, edge_attr = edge_features(data=mol)
+        graph = Data(x=x, z=z, pos=pos, edge_index=edge_index,
                     edge_attr=edge_attr, y=y, name=name, idx=idx)
-        elif isinstance(data, Structure):
-            (row, col) = edge_index
-            ## getting distances from distance matrix that is aware of mirror images
-            distance_matrix = data.distance_matrix
-            dist = torch.tensor(distance_matrix[row,col],dtype=torch.float)
-            if dist is None or distance_matrix is None:
-                return None
-            else:
-                graph= Data(x=x, z=z,edge_index=edge_index, edge_attr=edge_attr, y=y, name=name, idx=idx, dist=dist)
-
-        if isinstance(data,Structure) and not(hasattr(graph, 'dist')):
-            return None
-
-
         return graph
     except:
         return None
+    
+    
+def from_structure_to_graph(struct:Structure, y:torch.Tensor, name:str, idx:int) -> Data:
+    
+    try:
+        x,z =  pymatgen_node_features(data=struct)
+    except:
+        print("Problem with node features")
+        return None
+
+    try:
+        edge_index, edge_attr = edge_features(data=struct)
+    except:
+        print("Problem with edge features")
+        return None
+    
+    (row, col) = edge_index
+    ## getting distances from distance matrix that is aware of mirror images
+    distance_matrix = struct.distance_matrix
+    dist = torch.tensor(distance_matrix[row,col],dtype=torch.float)
+    
+    if dist is None or distance_matrix is None:
+        print("dist is none")
+        return None
+    
+    
+    graph= Data(x=x, z=z,edge_index=edge_index, edge_attr=edge_attr, y=y, name=name, idx=idx, dist=dist)
+        
+    return graph
+
     
 
 
@@ -222,6 +235,10 @@ def data_to_graph(data:Union[str,Structure], y:torch.Tensor, idx: int, seed:int,
         name= data
         ## 2. ETKDG seeded method 3D coordinate generation
         mol, pos = from_smiles_to_molecule_and_coordinates(smile=data, seed=seed, add_hydrogen=add_hydrogen)
+        if mol is None:
+            return None
+        graph= from_molecule_to_graph(mol=mol, y=y, pos=pos, name=name, idx=idx)
+
         
     elif isinstance(data,Structure):
         
@@ -229,22 +246,10 @@ def data_to_graph(data:Union[str,Structure], y:torch.Tensor, idx: int, seed:int,
             raise ValueError("Explicit hydrogens is not yet supported for crystallographic data")
         name = data.formula
         ## no need for 3D coordinate generation as crystallographic structure is given
-        mol = from_structure_to_molecule(struct=data)
+        graph = from_structure_to_graph(struct=data, y=y,name=name, idx=idx,)
         ## we still initialize pos for compatibility with functions
-        pos = None
-    
-    if mol is None:
-        return None
-    
-    graph= from_molecule_to_graph(mol=mol, y=y, pos=pos, name=name, idx=idx, data=data)
-    
-    ##really check whether distances have been computed well
-    if isinstance(data,Structure):
-        try:
-            dist = graph.dist
-        except:
-            ## no dist attributes
-            return None
+        
+
     
     if pre_filter is not None and not pre_filter(graph):
         return None
