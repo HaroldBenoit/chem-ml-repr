@@ -116,17 +116,15 @@ def edge_features(data: Union[Chem.rdchem.Mol,Structure]) -> Tuple[torch.Tensor,
 
     if isinstance(data, Chem.rdchem.Mol):
         mol=data
-            # getting all covalent bond types
+        # getting all covalent bond types
         bonds_dict = {(bond.GetBeginAtomIdx(),bond.GetEndAtomIdx()):bonds_type["single"] for bond in mol.GetBonds()}
-        
         # returns 0 for all pairs of atoms with no covalent bond 
         bonds_dict = defaultdict(int, bonds_dict)
         N = mol.GetNumAtoms()
         
         
     elif isinstance(data, Structure):
-        ## we can compute whether there's a bond using pymatgen
-        struct = data
+        struct=data
         N = len(struct.species)
 
     # making the complete graph
@@ -135,16 +133,18 @@ def edge_features(data: Union[Chem.rdchem.Mol,Structure]) -> Tuple[torch.Tensor,
     edge_type=[]
         
     ## building complete graph edge indexes
+    is_molecule = isinstance(data, Chem.rdchem.Mol)
+    is_structure = isinstance(data, Structure)
     for i in range(N):
         for j in range(N):
             if i!=j:
                 first_node_index.append(i)
                 second_node_index.append(j)
                 
-                if isinstance(data, Chem.rdchem.Mol):
+                if is_molecule:
                     edge_type.append(bonds_dict[(i,j)] if i < j else bonds_dict[(j,i)])
                     
-                elif isinstance(data, Structure):
+                elif is_structure:
                     site1 = struct.species[i]
                     site2 = struct.species[j]
                     try:

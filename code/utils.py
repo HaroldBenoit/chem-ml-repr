@@ -229,7 +229,7 @@ def from_structure_to_graph(struct:Structure, y:torch.Tensor, name:str, idx:int)
 
 
 def data_to_graph(data:Union[str,Structure], y:torch.Tensor, idx: int, seed:int, add_hydrogen:bool, pre_transform: Callable, pre_filter:Callable) -> Data:
-    
+
     
     if isinstance(data,str):
         name= data
@@ -246,7 +246,7 @@ def data_to_graph(data:Union[str,Structure], y:torch.Tensor, idx: int, seed:int,
             raise ValueError("Explicit hydrogens is not yet supported for crystallographic data")
         name = data.formula
         ## no need for 3D coordinate generation as crystallographic structure is given
-        graph = from_structure_to_graph(struct=data, y=y,name=name, idx=idx,)
+        graph = from_structure_to_graph(struct=data, y=y,name=name, idx=idx)
         ## we still initialize pos for compatibility with functions
         
 
