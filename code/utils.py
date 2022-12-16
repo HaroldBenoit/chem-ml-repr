@@ -229,7 +229,9 @@ def from_structure_to_graph(struct:Structure, y:torch.Tensor, name:str, idx:int)
 
 
 def data_to_graph(data:Union[str,Structure], y:torch.Tensor, idx: int, seed:int, add_hydrogen:bool, pre_transform: Callable, pre_filter:Callable) -> Data:
-
+    
+    if idx % 1000 == 0:
+        print("index: ", idx)
     
     if isinstance(data,str):
         name= data
