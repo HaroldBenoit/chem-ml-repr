@@ -182,6 +182,27 @@ class MatBenchMpGap(UcrDataset):
                      add_hydrogen=add_hydrogen, seed=seed, transform=transform, pre_transform=pre_transform, pre_filter=pre_filter)
         
         
+
+        
+        
+class MatBenchMpEForm(UcrDataset):
+    """Load matchbench_mp_e_form dataset
+        The raw data contains a compressed json file containing informations on structure and target
+    """
+    
+    target_names = ['e_form']
+    is_classification={target:False for target in target_names}
+    
+    def __init__(self, root: str, add_hydrogen=False, seed=GLOBAL_SEED, transform: Optional[Callable] = None,
+                 pre_transform: Optional[Callable] = None,
+                 pre_filter: Optional[Callable] = None):
+        
+        filename="matbench_mp_e_form.json.gz"
+        raw_url= "https://ml.materialsproject.org/projects/matbench_mp_e_form.json.gz"
+        data_column_name="data"
+
+        super().__init__(root=root, filename = filename, raw_url=raw_url, data_column_name=data_column_name, target_names= MatBenchMpEForm.target_names,
+                     add_hydrogen=add_hydrogen, seed=seed, transform=transform, pre_transform=pre_transform, pre_filter=pre_filter)
         
 
 class BaceDataset(InMemoryUcrDataset):
@@ -270,7 +291,7 @@ class BBBPDataset(InMemoryUcrDataset):
 
 
 
-dataset_dict= {"qm9": QM9Dataset, "bace":BaceDataset, "bbbp": BBBPDataset, "freesolv":FreeSolvDataset, "muv":MUVDataset, "mp_is_metal":MatBenchMpIsMetal}
+dataset_dict= {"qm9": QM9Dataset, "bace":BaceDataset, "bbbp": BBBPDataset, "freesolv":FreeSolvDataset, "muv":MUVDataset, "mp_is_metal":MatBenchMpIsMetal, "mp_e_form":MatBenchMpEForm}
 
 
 def main():
