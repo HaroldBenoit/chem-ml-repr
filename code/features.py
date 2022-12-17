@@ -26,6 +26,9 @@ from collections import defaultdict
 
 AVERAGE_ELECTRONEGATIVITY=1.713
 
+atom_number_to_radius = torch.load("../important_data/atom_number_to_radius.pt")
+
+
 
 #def node_features(mol:Chem.rdchem.Mol):
 #    # 3. QM9 featurization of nodes
@@ -108,7 +111,7 @@ def pymatgen_node_features(data: Union[Chem.rdchem.Mol,Structure]) -> Tuple[torc
 
 
 
-def edge_features(data: Union[Chem.rdchem.Mol,Structure]) -> Tuple[torch.Tensor, torch.Tensor]:
+def edge_features(data: Union[Chem.rdchem.Mol,Structure], pos:Optional[torch.Tensor] = None, distance_matrix:Optional[np.ndarray]=None) -> Tuple[torch.Tensor, torch.Tensor]:
     
     #4. Create the complete graph (no self-loops) with covalent bond types as edge attributes
     
@@ -159,6 +162,32 @@ def edge_features(data: Union[Chem.rdchem.Mol,Structure]) -> Tuple[torch.Tensor,
     edge_index = torch.tensor([first_node_index, second_node_index], dtype=torch.long)
     edge_type = torch.tensor(edge_type, dtype=torch.long)
     edge_attr = F.one_hot(edge_type, num_classes=len(bonds_type)).to(torch.float)
+    
+    
+    ### DISTANCES
+    (row, col) = edge_index
+
+    
+    if isinstance(data, Chem.rdchem.Mol):
+        ## in the case of smiles molecules, we need to compute distances
+        dist = torch.norm(pos[col] - pos[row], p=2, dim=-1).view(-1, 1)
+    elif isinstance(data, Structure):
+        dist = torch.tensor(distance_matrix[row,col],dtype=torch.float).view(-1,1)
+    
+    ## must weigh distance before normalizing as units [Angstrom] need to match
+    # z gives us atomic number
+    weights=  torch.tensor([(atom_number_to_radius[int(data.z[i])]+ atom_number_to_radius[int(data.z[j])])/2 for i,j in data.edge_index.T]).view(-1,1)
+    dist = (dist/weights).view(-1,1)
+    
+    ## normalization
+    dist = dist / dist.max()
+    
+    ## add distance feature to the rest of the features
+    pseudo = edge_attr
+    pseudo = pseudo.view(-1, 1) if pseudo.dim() == 1 else pseudo
+    edge_attr = torch.cat([pseudo, dist.type_as(pseudo)], dim=-1)
+
+    
     
     return edge_index,edge_attr
 

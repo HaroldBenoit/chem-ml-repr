@@ -189,7 +189,7 @@ def from_molecule_to_graph(mol:Chem.rdchem.Mol, y:torch.Tensor, pos:torch.Tensor
     
     try:
         x,z =  pymatgen_node_features(data=mol)
-        edge_index, edge_attr = edge_features(data=mol)
+        edge_index, edge_attr = edge_features(data=mol, pos=pos)
         graph = Data(x=x, z=z, pos=pos, edge_index=edge_index,
                     edge_attr=edge_attr, y=y, name=name, idx=idx)
         return graph
@@ -206,22 +206,12 @@ def from_structure_to_graph(struct:Structure, y:torch.Tensor, name:str, idx:int)
         return None
 
     try:
-        edge_index, edge_attr = edge_features(data=struct)
+        edge_index, edge_attr = edge_features(data=struct, distance_matrix=struct.distance_matrix)
     except:
         print("Problem with edge features")
         return None
     
-    (row, col) = edge_index
-    ## getting distances from distance matrix that is aware of mirror images
-    distance_matrix = struct.distance_matrix
-    dist = torch.tensor(distance_matrix[row,col],dtype=torch.float)
-    
-    if dist is None or distance_matrix is None:
-        print("dist is none")
-        return None
-    
-    
-    graph= Data(x=x, z=z,edge_index=edge_index, edge_attr=edge_attr, y=y, name=name, idx=idx, dist=dist)
+    graph= Data(x=x, z=z,edge_index=edge_index, edge_attr=edge_attr, y=y, name=name, idx=idx)
         
     return graph
 

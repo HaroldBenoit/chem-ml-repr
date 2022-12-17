@@ -37,7 +37,6 @@ class Distance(BaseTransform):
     def __call__(self, data:Data) -> Data:
 
 
-        pseudo = data.edge_attr
             
         if self.dist_present or hasattr(data,'dist'):
             ## in the case of pymatgen structures, we have already computed beforehand as we need to be careful with mirror images
@@ -66,6 +65,8 @@ class Distance(BaseTransform):
             dist = dist / (dist.max() if self.max is None else self.max)
         
 #        print(dist.shape, dist)
+        pseudo = data.edge_attr
+
 
         if pseudo is not None and self.cat:
             pseudo = pseudo.view(-1, 1) if pseudo.dim() == 1 else pseudo
