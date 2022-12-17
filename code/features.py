@@ -111,7 +111,7 @@ def pymatgen_node_features(data: Union[Chem.rdchem.Mol,Structure]) -> Tuple[torc
 
 
 
-def edge_features(data: Union[Chem.rdchem.Mol,Structure], pos:Optional[torch.Tensor] = None, distance_matrix:Optional[np.ndarray]=None) -> Tuple[torch.Tensor, torch.Tensor]:
+def edge_features(data: Union[Chem.rdchem.Mol,Structure], z:torch.Tensor, pos:Optional[torch.Tensor] = None, distance_matrix:Optional[np.ndarray]=None) -> Tuple[torch.Tensor, torch.Tensor]:
     
     #4. Create the complete graph (no self-loops) with covalent bond types as edge attributes
     
@@ -168,19 +168,21 @@ def edge_features(data: Union[Chem.rdchem.Mol,Structure], pos:Optional[torch.Ten
     (row, col) = edge_index
 
     
-    if isinstance(data, Chem.rdchem.Mol):
+    if is_molecule:
         ## in the case of smiles molecules, we need to compute distances
         dist = torch.norm(pos[col] - pos[row], p=2, dim=-1).view(-1, 1)
-    elif isinstance(data, Structure):
+    elif is_structure:
         dist = torch.tensor(distance_matrix[row,col],dtype=torch.float).view(-1,1)
     
-    ## must weigh distance before normalizing as units [Angstrom] need to match
-    # z gives us atomic number
-    weights=  torch.tensor([(atom_number_to_radius[int(data.z[i])]+ atom_number_to_radius[int(data.z[j])])/2 for i,j in data.edge_index.T]).view(-1,1)
-    dist = (dist/weights).view(-1,1)
+    ## sometimes we're dealing with a single atom object, need to skip then
+    if dist.numel() > 0:
+        ## must weigh distance before normalizing as units [Angstrom] need to match
+        # z gives us atomic number
+        weights=  torch.tensor([(atom_number_to_radius[int(z[i])]+ atom_number_to_radius[int(z[j])])/2 for i,j in edge_index.T]).view(-1,1)
+        dist = (dist/weights).view(-1,1)
     
-    ## normalization
-    dist = dist / dist.max()
+        ## normalization
+        dist = dist / dist.max()
     
     ## add distance feature to the rest of the features
     pseudo = edge_attr
