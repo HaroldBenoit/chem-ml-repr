@@ -42,7 +42,12 @@ class Distance(BaseTransform):
         if self.dist_present or hasattr(data,'dist'):
             ## in the case of pymatgen structures, we have already computed beforehand as we need to be careful with mirror images
             ## this was done using struct.distance_matrix (which gives Euclidean distance)
-            dist = data.dist.view(-1,1)
+            try:
+                dist = data.dist.view(-1,1)
+            except AttributeError as e:
+                print("index: ", data.idx)
+                print("data: ", data)
+                raise(e)
         else:
             ## in the case of smiles molecules, we need to compute distances
             ## we need to check for non-presence of dist instead of presence of pos because Data class has always pos attributes

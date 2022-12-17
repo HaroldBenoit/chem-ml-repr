@@ -36,9 +36,9 @@ from torch_geometric.data import (
 
 ## parallelization
 import os
-import dask
-dask.config.set(scheduler="processes")
-from dask.distributed import Client, LocalCluster
+#import dask
+#dask.config.set(scheduler="processes")
+#from dask.distributed import Client, LocalCluster
 
 
 from utils import download_dataset, data_to_graph
@@ -291,7 +291,7 @@ class BBBPDataset(InMemoryUcrDataset):
 
 
 
-dataset_dict= {"qm9": QM9Dataset, "bace":BaceDataset, "bbbp": BBBPDataset, "freesolv":FreeSolvDataset, "muv":MUVDataset, "mp_is_metal":MatBenchMpIsMetal, "mp_e_form":MatBenchMpEForm}
+dataset_dict= {"qm9": QM9Dataset, "bace":BaceDataset, "bbbp": BBBPDataset, "freesolv":FreeSolvDataset, "muv":MUVDataset, "mp_is_metal":MatBenchMpIsMetal, "mp_gap":MatBenchMpGap,"mp_e_form":MatBenchMpEForm}
 
 
 def main():
