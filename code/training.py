@@ -31,10 +31,10 @@ def main():
     parser.add_argument('--root', required=True, help="Root path where the dataset is stored or to be stored after processing")
     parser.add_argument('--dataset', required=True, help="Dataset name")
     parser.add_argument('--target', required=True, help="Target name i.e. inferred value in dataset")
-    parser.add_argument('--weighted', action="store_true", help="If flag specified, make the edge distances weighted by atomic radius")
-    parser.add_argument('--no_distance', action='store_true',help="If flag specified, don't compute distance")
-    parser.add_argument('--dist_present', action="store_true", help="If flag specified, dist has been computed")
-
+    #parser.add_argument('--weighted', action="store_true", help="If flag specified, make the edge distances weighted by atomic radius")
+    #parser.add_argument('--no_distance', action='store_true',help="If flag specified, don't compute distance")
+    #parser.add_argument('--dist_present', action="store_true", help="If flag specified, dist has been computed")
+#
     
     ##training
     parser.add_argument('--epochs', default=100)
@@ -46,8 +46,8 @@ def main():
     root= args.root
     dataset=args.dataset
     target=args.target
-    dist_present = args.dist_present
-    no_distance = args.no_distance
+    #dist_present = args.dist_present
+    #no_distance = args.no_distance
 
     seed=42
     
@@ -77,15 +77,13 @@ def main():
     ## DATASET
     ## getting the correct dataset
     dataset_class = datasets_classes.dataset_dict[dataset]
-    # filtering out irrelevant target and computing euclidean distances between each vertices
-    weighted = args.weighted
-    atom_number_to_radius = None if not(weighted) else torch.load("../important_data/atom_number_to_radius.pt")
     
-    if not(no_distance):
-        distance = Distance(weighted=weighted,atom_number_to_radius=atom_number_to_radius, dist_present=dist_present)
-        transforms=Compose([filter_target(target_names=dataset_class.target_names, target=target), distance])
-    else:
-        transforms = filter_target(target_names=dataset_class.target_names, target=target)
+    #weighted = args.weighted
+    #atom_number_to_radius = None if not(weighted) else torch.load("../important_data/atom_number_to_radius.pt")
+    
+    
+    # filtering out irrelevant target
+    transforms = filter_target(target_names=dataset_class.target_names, target=target)
         
         
     
@@ -122,8 +120,8 @@ def main():
     if args.hydrogen:
         run_name=f"{run_name}_hydrogen"
         
-    if args.weighted:
-        run_name=f"{run_name}_weighted"
+    #if args.weighted:
+    #    run_name=f"{run_name}_weighted"
     
     if args.no_log:
         wandb_logger=False
