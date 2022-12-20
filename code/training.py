@@ -21,23 +21,36 @@ import datasets_classes
 def main():
     
     parser = argparse.ArgumentParser(prog="Training", description="Training pipeline")
-    parser.add_argument('--debug', action='store_true', help="If flag specified, activate breakpoints in the script")
-    parser.add_argument('--no_log', action="store_true", help="If flag specified, no logging is done")
-    parser.add_argument('--cluster', action='store_true' ,help="If flag specified, we are training on the cluster")
-    parser.add_argument('--hydrogen', action='store_true' ,help="If flag specified, we are using the hydrogen dataset")
-    parser.add_argument('--checkpoint', help="Path to the checkpoint of the model (ends with .ckpt). Defaults to None")
+
     
     ##dataset
     parser.add_argument('--root', required=True, help="Root path where the dataset is stored or to be stored after processing")
-    parser.add_argument('--dataset', required=True, help="Dataset name")
-    parser.add_argument('--target', required=True, help="Target name i.e. inferred value in dataset")
+    parser.add_argument('--dataset', required=True, help=f"Dataset name. Available datasets are {list(datasets_classes.dataset_dict.keys())}")
+    parser.add_argument('--target', required=True, help="Target name i.e. predicted value in dataset")
     #parser.add_argument('--weighted', action="store_true", help="If flag specified, make the edge distances weighted by atomic radius")
     #parser.add_argument('--no_distance', action='store_true',help="If flag specified, don't compute distance")
     #parser.add_argument('--dist_present', action="store_true", help="If flag specified, dist has been computed")
-#
     
+    
+    parser.add_argument('--debug', action='store_true', help="If flag specified, activate breakpoints in the script")
+    parser.add_argument('--no_log', action="store_true", help="If flag specified, no logging is done")
+    parser.add_argument('--cluster', action='store_true' ,help="If flag specified, we are training on the cluster")
+    parser.add_argument('--checkpoint', help="Path to the checkpoint of the model (ends with .ckpt). Defaults to None")
+    
+    ##representation
+    parser.add_argument('--hydrogen', action='store_true' ,help="If flag specified, we are using explicit hydrogens")
+    parser.add_argument('--boolean', action='store_true', help="If flag specified, we are also using boolean features in the node features")
+
+
     ##training
-    parser.add_argument('--epochs', default=100)
+    parser.add_argument('--epochs', default=30, type=int)
+    parser.add_argument('--batch_size', default=32, type=int)
+    parser.add_argument('--num_hidden', default=256, type=int)
+    parser.add_argument('--num_message_layers', default=4, type=int)
+    parser.add_argument('--val_check_interval', default=1.0, type=float,help="How often within one training epoch to check the validation set. Can specify as float")
+    
+    
+    print("\nIf you're dealing with materials data, it is a good idea to reduce the number of epochs (4), reduce batch size (4) and lower val_check_interval (0.25)\n")
     
     
     args = parser.parse_args()
@@ -82,14 +95,19 @@ def main():
     #atom_number_to_radius = None if not(weighted) else torch.load("../important_data/atom_number_to_radius.pt")
     
     
-    # filtering out irrelevant target
-    transforms = filter_target(target_names=dataset_class.target_names, target=target)
+    # filtering out irrelevant target and removing or not boolean features
+    if args.boolean:
+        transforms = filter_target(target_names=dataset_class.target_names, target=target)
+    else:
+        transforms = Compose([filter_target(target_names=dataset_class.target_names, target=target), filter_boolean_features])
+
+
         
         
     
     dataset = dataset_class(root=root, add_hydrogen=args.hydrogen,transform=transforms)
     # from torch dataset, create lightning data module to make sure training splits are always done the same ways
-    data_module = UcrDataModule(dataset=dataset, seed=seed)
+    data_module = UcrDataModule(dataset=dataset, seed=seed, batch_size=args.batch_size)
 
     if debug:
         pdb.set_trace(header="After dataset transform")
@@ -97,7 +115,7 @@ def main():
 
     
     ## MODEL
-    num_hidden_features=256
+    num_hidden_features=args.num_hidden
     dropout_p = 0.0
     classification= dataset_class.is_classification[target]
     output_dim = 2 if classification else 1
@@ -106,12 +124,12 @@ def main():
     num_edge_features= data_module.num_edge_features
       
     gnn_model = LightningClassicGNN(seed=seed, classification=classification, output_dim=output_dim, dropout_p=dropout_p,
-                                    num_hidden_features=num_hidden_features,  num_node_features=num_node_features, num_edge_features=num_edge_features)
+                                    num_hidden_features=num_hidden_features,  num_node_features=num_node_features, num_edge_features=num_edge_features, num_message_passing_layers=args.num_message_layers)
     
     
     ## WANDB
       
-    project=f"{args.dataset}-project"
+    project=f"{args.dataset}-project-post"
     run_name=f"target_{target}" 
     #quirk of wandbs
     if "mu" in target:
@@ -127,7 +145,8 @@ def main():
         wandb_logger=False
     else:
         #docs: https://pytorch-lightning.readthedocs.io/en/stable/extensions/generated/pytorch_lightning.loggers.WandbLogger.html#pytorch_lightning.loggers.WandbLogger
-        wandb_logger = WandbLogger(save_dir="../training_artifacts/", log_model=True, project=project, name=run_name, id=run_name)
+        ## maybe put id=run_name
+        wandb_logger = WandbLogger(save_dir="../training_artifacts/", log_model=True, project=project, name=run_name)
         ## log histograms of gradients and parameters
         wandb_logger.watch(gnn_model, log_freq=log_freq)
         
@@ -136,10 +155,14 @@ def main():
     
     strategy = "ddp" if args.cluster else None
     ## creating early stop callback to ensure we don't overfit
-    early_stop_callback = EarlyStopping(monitor="loss/valid", mode="min", patience=num_epochs//2, min_delta=0.00)
+    if num_epochs > 10:
+        patience = num_epochs //2
+    else:
+        patience = num_epochs
+    early_stop_callback = EarlyStopping(monitor="loss/valid", mode="min", patience=patience, min_delta=0.00)
     
     trainer = pl.Trainer(logger=wandb_logger, deterministic=False, default_root_dir="../training_artifacts/", precision=32,
-	 strategy=strategy,max_epochs=num_epochs ,log_every_n_steps=log_freq, devices=devices, accelerator=accelerator, callbacks=[early_stop_callback], fast_dev_run=False)
+	 strategy=strategy,max_epochs=num_epochs ,log_every_n_steps=log_freq, devices=devices, accelerator=accelerator, callbacks=[early_stop_callback], fast_dev_run=False, val_check_interval=args.val_check_interval)
 
     # strategy="ddp"   
     
@@ -177,6 +200,15 @@ def filter_target_with_idx(graph:Data, target_idx:int) -> Data:
     new_graph = Data(x=graph.x, edge_index=graph.edge_index, edge_attr=graph.edge_attr, pos=graph.pos ,y=graph.y[:,target_idx:target_idx+1], z=graph.z, name=graph.name, idx=graph.idx) 
 
     return new_graph
+
+
+def filter_boolean_features(graph:Data) -> Data:
+    ## we remove all the "is_*" features from the node features
+    # we also remove useless parts to make the representation use less memory
+    new_graph = Data(x=graph.x[:,:], edge_index=graph.edge_index, edge_attr=graph.edge_attr, y=graph.y) 
+
+    return new_graph
+
 
 
 
