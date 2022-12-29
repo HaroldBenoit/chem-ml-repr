@@ -133,7 +133,7 @@ class LightningClassicGNN(pl.LightningModule):
                 self.log(f"accuracy/{suffix}",accuracy, batch_size=batch_size, on_epoch=True)
             else:
                 loss= F.l1_loss(x_out,batch.y)
-                self.log(f"loss/{suffix}", loss, batch_size=batch_size, on_epoch=True)
+                self.log(f"loss/{suffix}", loss, batch_size=batch_size, on_epoch=True, sync_dist= suffix==valid)
 
 
             return loss
