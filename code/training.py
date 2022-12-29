@@ -64,7 +64,7 @@ def main():
     #dist_present = args.dist_present
     #no_distance = args.no_distance
 
-    seed=42
+    seed=args.seed
     
 
     ## pytorch lighting takes of seeding everything
@@ -139,6 +139,11 @@ def main():
         
     if args.hydrogen:
         run_name=f"{run_name}_hydrogen"
+        
+        
+    if args.boolean:
+        run_name=f"{run_name}_boolean"
+
         
     #if args.weighted:
     #    run_name=f"{run_name}_weighted"
