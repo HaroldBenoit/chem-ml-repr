@@ -3,6 +3,7 @@ from lightning_model import LightningClassicGNN
 import pytorch_lightning as pl
 from pytorch_lightning.loggers import WandbLogger
 from pytorch_lightning.callbacks.early_stopping import EarlyStopping
+from pytorch_lightning.callbacks import LearningRateMonitor
 import torch
 # making sure we are as determinstic as possibe
 #torch.use_deterministic_algorithms(True)
@@ -161,9 +162,10 @@ def main():
     else:
         patience = num_epochs
     early_stop_callback = EarlyStopping(monitor="loss/valid", mode="min", patience=patience, min_delta=0.00)
+    lr_monitor = LearningRateMonitor(logging_interval='step')
     
     trainer = pl.Trainer(logger=wandb_logger, deterministic=False, default_root_dir="../training_artifacts/", precision=32,
-	 strategy=strategy,max_epochs=num_epochs ,log_every_n_steps=log_freq, devices=devices, accelerator=accelerator, callbacks=[early_stop_callback], fast_dev_run=False, val_check_interval=args.val_check_interval)
+	 strategy=strategy,max_epochs=num_epochs ,log_every_n_steps=log_freq, devices=devices, accelerator=accelerator, callbacks=[early_stop_callback, lr_monitor], fast_dev_run=False, val_check_interval=args.val_check_interval)
 
     # strategy="ddp"   
     
