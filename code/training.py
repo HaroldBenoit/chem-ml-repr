@@ -27,6 +27,7 @@ def main():
     parser.add_argument('--root', required=True, help="Root path where the dataset is stored or to be stored after processing")
     parser.add_argument('--dataset', required=True, help=f"Dataset name. Available datasets are {list(datasets_classes.dataset_dict.keys())}")
     parser.add_argument('--target', required=True, help="Target name i.e. predicted value in dataset")
+    parser.add_argument('--seed', default=42, help="Seed that dictates dataset splitting")
     #parser.add_argument('--weighted', action="store_true", help="If flag specified, make the edge distances weighted by atomic radius")
     #parser.add_argument('--no_distance', action='store_true',help="If flag specified, don't compute distance")
     #parser.add_argument('--dist_present', action="store_true", help="If flag specified, dist has been computed")
@@ -205,7 +206,7 @@ def filter_target_with_idx(graph:Data, target_idx:int) -> Data:
 def filter_boolean_features(graph:Data) -> Data:
     ## we remove all the "is_*" features from the node features
     # we also remove useless parts to make the representation use less memory
-    new_graph = Data(x=graph.x[:,:], edge_index=graph.edge_index, edge_attr=graph.edge_attr, y=graph.y) 
+    new_graph = Data(x=graph.x[:,:10], edge_index=graph.edge_index, edge_attr=graph.edge_attr, y=graph.y) 
 
     return new_graph
 
