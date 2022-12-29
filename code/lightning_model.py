@@ -1,9 +1,9 @@
-import numpy as np
 import torch
 from torch.nn import Dropout, Linear,PReLU
 
 from torch_geometric.nn import GeneralConv, Sequential, global_add_pool, BatchNorm
 from sklearn.metrics import roc_auc_score
+
 
 from typing import Any
 
@@ -23,7 +23,7 @@ class LightningClassicGNN(pl.LightningModule):
 
     """
     
-    def __init__(self, seed:int, classification = True, num_hidden_features=256, dropout_p=0.0, learning_rate=0.01, num_message_passing_layers=4 , **kwargs: Any) -> None:
+    def __init__(self, seed:int, classification = True, num_hidden_features=256, dropout_p=0.0, learning_rate=1e-3, num_message_passing_layers=4 , **kwargs: Any) -> None:
         super(LightningClassicGNN,self).__init__()
         self.save_hyperparameters()
         
@@ -129,7 +129,7 @@ class LightningClassicGNN(pl.LightningModule):
                 accuracy = (pred ==label).sum() / pred.shape[0]
 
                 self.log(f"loss/{suffix}", loss, batch_size=batch_size, on_epoch=True)
-                self.log(f"auc/{suffix}", auc ,batch_size=batch_size, on_epoch=True)
+                self.log(f"auc/{suffix}", float(auc) ,batch_size=batch_size, on_epoch=True)
                 self.log(f"accuracy/{suffix}",accuracy, batch_size=batch_size, on_epoch=True)
             else:
                 loss= F.l1_loss(x_out,batch.y)
@@ -142,5 +142,15 @@ class LightningClassicGNN(pl.LightningModule):
     
     def configure_optimizers(self):
         optimizer = torch.optim.Adam(self.model.parameters(), lr=self.learning_rate)
-        return optimizer
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer=optimizer, mode='min', patience=1)
+        
+        lr_scheduler_config={
+            "optimizer": optimizer,
+            "lr_scheduler":{
+                "scheduler": scheduler,
+                "monitor": "loss/val",
+                "frequency":1, ##!TODO could be equal to val_check_interval from training.py
+            }
+        }  
+        return lr_scheduler_config
     
