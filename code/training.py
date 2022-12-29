@@ -126,7 +126,7 @@ def main():
     num_edge_features= data_module.num_edge_features
       
     gnn_model = LightningClassicGNN(seed=seed, classification=classification, output_dim=output_dim, dropout_p=dropout_p,
-                                    num_hidden_features=num_hidden_features,  num_node_features=num_node_features, num_edge_features=num_edge_features, num_message_passing_layers=args.num_message_layers)
+                                    num_hidden_features=num_hidden_features,  num_node_features=num_node_features, num_edge_features=num_edge_features, num_message_passing_layers=args.num_message_layers, val_check_interval=args.val_check_interval)
     
     
     ## WANDB

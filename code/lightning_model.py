@@ -23,7 +23,7 @@ class LightningClassicGNN(pl.LightningModule):
 
     """
     
-    def __init__(self, seed:int, classification = True, num_hidden_features=256, dropout_p=0.0, learning_rate=1e-3, num_message_passing_layers=4 , **kwargs: Any) -> None:
+    def __init__(self, seed:int, classification = True, num_hidden_features=256, dropout_p=0.0, learning_rate=1e-3, num_message_passing_layers=4 , val_check_interval=1.0, **kwargs: Any) -> None:
         super(LightningClassicGNN,self).__init__()
         self.save_hyperparameters()
         
@@ -49,6 +49,7 @@ class LightningClassicGNN(pl.LightningModule):
         self.learning_rate = learning_rate
         self.num_message_passing_layers= num_message_passing_layers
         self.seed = seed
+        self.val_check_interval = val_check_interval
         pl.seed_everything(seed=seed, workers=True)
 
         
@@ -149,7 +150,7 @@ class LightningClassicGNN(pl.LightningModule):
             "lr_scheduler":{
                 "scheduler": scheduler,
                 "monitor": "loss/val",
-                "frequency":1, ##!TODO could be equal to val_check_interval from training.py
+                "frequency":self.val_check_interval, ##!TODO could be equal to val_check_interval from training.py
             }
         }  
         return lr_scheduler_config
