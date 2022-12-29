@@ -81,7 +81,8 @@ def pymatgen_node_features(data: Union[Chem.rdchem.Mol,Structure]) -> Tuple[torc
         
     ## defines elemental features    
     features = ["atomic_radius","atomic_mass","average_ionic_radius", "average_cationic_radius", "average_anionic_radius", "max_oxidation_state",
-            "min_oxidation_state", "row","group", "is_noble_gas", "is_post_transition_metal", "is_rare_earth_metal", "is_metal", "is_metalloid",
+            "min_oxidation_state", "row","group",
+            "is_noble_gas", "is_post_transition_metal", "is_rare_earth_metal", "is_metal", "is_metalloid",
             "is_alkali", "is_alkaline", "is_halogen","is_chalcogen", "is_lanthanoid","is_actinoid", "is_quadrupolar"] 
     
     features_dict = {feature:[] for feature in features}
@@ -182,6 +183,8 @@ def edge_features(data: Union[Chem.rdchem.Mol,Structure], z:torch.Tensor, pos:Op
         dist = (dist/weights).view(-1,1)
     
         ## normalization
+        # for molecules, normalize by bond length
+        # for crystals, normalize 
         dist = dist / dist.max()
     
     ## add distance feature to the rest of the features
