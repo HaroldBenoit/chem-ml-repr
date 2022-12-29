@@ -164,8 +164,10 @@ def main():
     early_stop_callback = EarlyStopping(monitor="loss/valid", mode="min", patience=patience, min_delta=0.00)
     lr_monitor = LearningRateMonitor(logging_interval='step')
     
+    callbacks = [early_stop_callback, lr_monitor] if not(args.no_log) else [early_stop_callback]
+    
     trainer = pl.Trainer(logger=wandb_logger, deterministic=False, default_root_dir="../training_artifacts/", precision=32,
-	 strategy=strategy,max_epochs=num_epochs ,log_every_n_steps=log_freq, devices=devices, accelerator=accelerator, callbacks=[early_stop_callback, lr_monitor], fast_dev_run=False, val_check_interval=args.val_check_interval)
+	 strategy=strategy,max_epochs=num_epochs ,log_every_n_steps=log_freq, devices=devices, accelerator=accelerator, callbacks=callbacks, fast_dev_run=False, val_check_interval=args.val_check_interval)
 
     # strategy="ddp"   
     

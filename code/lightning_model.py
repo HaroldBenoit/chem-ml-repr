@@ -128,12 +128,13 @@ class LightningClassicGNN(pl.LightningModule):
                 label = batch.y
                 accuracy = (pred ==label).sum() / pred.shape[0]
 
-                self.log(f"loss/{suffix}", loss, batch_size=batch_size, on_epoch=True)
                 self.log(f"auc/{suffix}", float(auc) ,batch_size=batch_size, on_epoch=True)
                 self.log(f"accuracy/{suffix}",accuracy, batch_size=batch_size, on_epoch=True)
             else:
                 loss= F.l1_loss(x_out,batch.y)
-                self.log(f"loss/{suffix}", loss, batch_size=batch_size, on_epoch=True)
+                
+            sync_dist = suffix=="valid"
+            self.log(f"loss/{suffix}", loss, batch_size=batch_size, on_epoch=True, sync_dist= sync_dist)
 
 
             return loss
@@ -148,7 +149,7 @@ class LightningClassicGNN(pl.LightningModule):
             "optimizer": optimizer,
             "lr_scheduler":{
                 "scheduler": scheduler,
-                "monitor": "loss/val",
+                "monitor": "loss/valid",
                 "frequency":1, ##!TODO could be equal to val_check_interval from training.py
             }
         }  
