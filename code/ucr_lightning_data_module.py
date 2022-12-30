@@ -8,7 +8,7 @@ import math
 class UcrDataModule(pl.LightningDataModule):
     """ Pytorch Ligthning Data Module wrapper around Smiles Dataset to ensure reproducible and easy splitting of the dataset"""
     
-    def __init__(self, dataset:Dataset, seed, train_frac=0.6, valid_frac=0.1, test_frac=0.3, batch_size=32, test_dataset:Dataset = None) -> None:
+    def __init__(self, dataset:Dataset, seed, train_frac=0.6, valid_frac=0.1, test_frac=0.3, batch_size=32, total_frac=1.0) -> None:
         super().__init__()
     
         fracs= [train_frac,valid_frac,test_frac]
@@ -16,13 +16,12 @@ class UcrDataModule(pl.LightningDataModule):
         if not(math.isclose(sum(fracs), 1) and sum(fracs) <= 1):
             raise ValueError("invalid train_val_test split, fractions must add up to 1")
         
-        if test_dataset is not None:
-            # normalizing fractions if test_frac is not useful because we are provided the test dataset
-            norm_factor = train_frac + valid_frac
-            train_frac = train_frac/norm_factor
-            valid_frac= valid_frac/norm_factor
+        #if test_dataset is not None:
+        #    # normalizing fractions if test_frac is not useful because we are provided the test dataset
+        #    norm_factor = train_frac + valid_frac
+        #    train_frac = train_frac/norm_factor
+        #    valid_frac= valid_frac/norm_factor
 
-        #self.lengths = self.lengths_from_frac(fracs=fracs)
         self.batch_size = batch_size        
         self.dataset = dataset
         
@@ -31,20 +30,16 @@ class UcrDataModule(pl.LightningDataModule):
         
         
         # splitting the dataset
-        
         self.dataset = self.dataset.shuffle()
-        num_samples = len(self.dataset)
+        num_samples = math.floor(len(self.dataset)*total_frac)
         
         num_train = math.floor(num_samples*train_frac)
         self.train_data = self.dataset[:num_train]
         
-        if test_dataset is not None:
-            self.valid_data = self.dataset[:num_train]
-            self.test_data = test_dataset
-        else:
-            num_valid = math.floor(num_samples*valid_frac)
-            self.valid_data = self.dataset[num_train : num_train + num_valid]
-            self.test_data = self.dataset[num_train + num_valid:]
+
+        num_valid = math.floor(num_samples*valid_frac)
+        self.valid_data = self.dataset[num_train : num_train + num_valid]
+        self.test_data = self.dataset[num_train + num_valid:num_samples]
     
         
         # grabbing node and edge features

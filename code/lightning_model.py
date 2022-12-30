@@ -54,7 +54,6 @@ class LightningClassicGNN(pl.LightningModule):
         self.learning_rate = learning_rate
         self.num_message_passing_layers= num_message_passing_layers
         self.seed = seed
-        self.val_check_interval = val_check_interval
         pl.seed_everything(seed=seed, workers=True)
 
         

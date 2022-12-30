@@ -28,7 +28,8 @@ def main():
     parser.add_argument('--root', required=True, help="Root path where the dataset is stored or to be stored after processing")
     parser.add_argument('--dataset', required=True, help=f"Dataset name. Available datasets are {list(datasets_classes.dataset_dict.keys())}")
     parser.add_argument('--target', required=True, help="Target name i.e. predicted value in dataset")
-    parser.add_argument('--seed', default=42, help="Seed that dictates dataset splitting")
+    parser.add_argument('--seed', default=42, type=int, help="Seed that dictates dataset splitting")
+    parser.add_argument('--total_frac', default=1.0, type=float, help="Total fraction of the dataset to use, can be useful to set < 1.0 for experimentation")
     #parser.add_argument('--weighted', action="store_true", help="If flag specified, make the edge distances weighted by atomic radius")
     #parser.add_argument('--no_distance', action='store_true',help="If flag specified, don't compute distance")
     #parser.add_argument('--dist_present', action="store_true", help="If flag specified, dist has been computed")
@@ -52,7 +53,7 @@ def main():
     parser.add_argument('--val_check_interval', default=1.0, type=float,help="How often within one training epoch to check the validation set. Can specify as float")
     
     
-    print("\nIf you're dealing with materials data, it is a good idea to reduce the number of epochs (4), reduce batch size (4) and lower val_check_interval (0.25)\n")
+    print("\nIf you're dealing with materials data, it is a good idea to reduce the number of epochs (4), reduce batch size (4), lower val_check_interval (0.25) and maybe consider subsampling (total_frac < 1.0)s\n")
     
     
     args = parser.parse_args()
@@ -78,7 +79,7 @@ def main():
     accelerator="gpu"
 	#good devices are 0,1,2,3 on the cluster
     if args.cluster:
-        devices = [0,1,3]
+        devices = [0,1,2]
     else:
         devices = [0]
     
@@ -109,7 +110,7 @@ def main():
     
     dataset = dataset_class(root=root, add_hydrogen=args.hydrogen,transform=transforms)
     # from torch dataset, create lightning data module to make sure training splits are always done the same ways
-    data_module = UcrDataModule(dataset=dataset, seed=seed, batch_size=args.batch_size)
+    data_module = UcrDataModule(dataset=dataset, seed=seed, batch_size=args.batch_size, total_frac = args.total_frac)
 
     if debug:
         pdb.set_trace(header="After dataset transform")
@@ -126,7 +127,7 @@ def main():
     num_edge_features= data_module.num_edge_features
       
     ## need total_steps for lr_scheduler
-    total_steps = int(len(dataset) / args.batch_size) * num_epochs 
+    total_steps = int(len(data_module.train_dataloader()) / args.batch_size) * num_epochs 
     
     gnn_model = LightningClassicGNN(seed=seed, classification=classification, output_dim=output_dim, dropout_p=dropout_p,
                                     num_hidden_features=num_hidden_features,  num_node_features=num_node_features, 
