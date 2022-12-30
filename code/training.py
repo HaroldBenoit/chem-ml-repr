@@ -125,8 +125,13 @@ def main():
     num_node_features = data_module.num_node_features
     num_edge_features= data_module.num_edge_features
       
+    ## need total_steps for lr_scheduler
+    total_steps = int(len(dataset) / args.batch_size) * num_epochs 
+    
     gnn_model = LightningClassicGNN(seed=seed, classification=classification, output_dim=output_dim, dropout_p=dropout_p,
-                                    num_hidden_features=num_hidden_features,  num_node_features=num_node_features, num_edge_features=num_edge_features, num_message_passing_layers=args.num_message_layers, val_check_interval=args.val_check_interval)
+                                    num_hidden_features=num_hidden_features,  num_node_features=num_node_features, 
+                                    num_edge_features=num_edge_features, num_message_passing_layers=args.num_message_layers, 
+                                    total_steps=total_steps)
     
     
     ## WANDB

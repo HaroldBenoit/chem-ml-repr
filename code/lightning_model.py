@@ -23,9 +23,10 @@ class LightningClassicGNN(pl.LightningModule):
 
     """
     
-    def __init__(self, seed:int, classification = True, num_hidden_features=256, dropout_p=0.0, learning_rate=1e-3, num_message_passing_layers=4 , val_check_interval=1.0, **kwargs: Any) -> None:
+    def __init__(self, seed:int, classification = True, num_hidden_features=256, dropout_p=0.0, learning_rate=1e-3, num_message_passing_layers=4 , **kwargs: Any) -> None:
         super(LightningClassicGNN,self).__init__()
         self.save_hyperparameters()
+        
         
         if "num_node_features" in kwargs:
             self.num_node_features = kwargs["num_node_features"]
@@ -36,12 +37,16 @@ class LightningClassicGNN(pl.LightningModule):
             self.num_edge_features = kwargs["num_edge_features"]
         else:
             raise Exception("num_edge_features not defined")
-        
     
         if "output_dim" in kwargs:
             self.output_dim = kwargs["output_dim"]
         else:
             raise ValueError("output_dim not given")
+        
+        if "total_steps" in kwargs:
+            self.total_steps = kwargs["total_steps"]
+        else:
+            raise ValueError("total_steps not given")
                     
         self.classification = classification        
         self.hidden = num_hidden_features
@@ -99,10 +104,7 @@ class LightningClassicGNN(pl.LightningModule):
             x, edge_index = batch.x , batch.edge_index
             batch_index = batch.batch
             batch_size= len(batch)
-            #print("x ", x)
-            #print("edge_index: ", edge_index)
-            #print("batch_index: " ,batch_index)
-            
+
             x_out = self.forward(x, edge_index, batch_index)
             
             suffix= "train" if is_train else "valid"
@@ -113,18 +115,11 @@ class LightningClassicGNN(pl.LightningModule):
                 batch_y = torch.squeeze(batch.y,1)
                 loss = F.cross_entropy(x_out, batch_y.long())
 
-                # metrics here
-                #x_out_cpu = x_out.detach().cpu()
-                #print("X_out", x_out_cpu)
                 prob = F.softmax(input=x_out, dim=1)[:,1]
                 batch_y_cpu=batch_y.detach().cpu().numpy()
                 prob_cpu = prob.detach().cpu().numpy()
-                #print("batch_y ",batch_y_cpu)
-                #print("prob ", prob_cpu)
                 auc= roc_auc_score(y_true= batch_y_cpu, y_score= prob_cpu)
                 
-                #print("Auc", auc)
-
                 pred = x_out.argmax(-1)
                 label = batch.y
                 accuracy = (pred ==label).sum() / pred.shape[0]
@@ -134,25 +129,24 @@ class LightningClassicGNN(pl.LightningModule):
             else:
                 loss= F.l1_loss(x_out,batch.y)
                 
-            sync_dist = suffix=="valid"
-            self.log(f"loss/{suffix}", loss, batch_size=batch_size, on_epoch=True, sync_dist= sync_dist)
-
-
+            ## if validation step, we make sure to accumulate across gpus
+            self.log(f"loss/{suffix}", loss, batch_size=batch_size, on_epoch=True, sync_dist= not(is_train))
+            
             return loss
         
     
     
     def configure_optimizers(self):
         optimizer = torch.optim.Adam(self.model.parameters(), lr=self.learning_rate)
-        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer=optimizer, mode='min', patience=1)
+        scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer=optimizer, max_lr= 0.1, total_steps= self.total_steps)
         
-        lr_scheduler_config={
+        config={
             "optimizer": optimizer,
             "lr_scheduler":{
                 "scheduler": scheduler,
-                "monitor": "loss/valid",
-                "frequency":self.val_check_interval, ##!TODO could be equal to val_check_interval from training.py
+                "interval": "step",
+                "frequency": 1,
             }
         }  
-        return lr_scheduler_config
+        return config
     
