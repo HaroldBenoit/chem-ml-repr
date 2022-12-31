@@ -128,8 +128,7 @@ class LightningClassicGNN(pl.LightningModule):
             else:
                 loss= F.l1_loss(x_out,batch.y)
                 
-            ## if validation step, we make sure to accumulate across gpus
-            self.log(f"loss/{suffix}", loss, batch_size=batch_size, on_epoch=True, sync_dist= not(is_train))
+            self.log(f"loss/{suffix}", loss, batch_size=batch_size, on_epoch=True)
             
             return loss
         
@@ -137,14 +136,14 @@ class LightningClassicGNN(pl.LightningModule):
     
     def configure_optimizers(self):
         optimizer = torch.optim.Adam(self.model.parameters(), lr=self.learning_rate)
-        scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer=optimizer, max_lr= 0.1, total_steps= self.total_steps)
+        scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer=optimizer, gamma=0.999)
         
         config={
             "optimizer": optimizer,
             "lr_scheduler":{
                 "scheduler": scheduler,
                 "interval": "step",
-                "frequency": 1,
+                "frequency": 50,
             }
         }  
         return config

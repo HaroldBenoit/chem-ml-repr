@@ -127,7 +127,7 @@ def main():
     num_edge_features= data_module.num_edge_features
       
     ## need total_steps for lr_scheduler
-    total_steps = int(len(data_module.train_dataloader()) / args.batch_size) * num_epochs 
+    total_steps = int(len(data_module.train_dataloader()) / args.batch_size) * num_epochs * 2
     
     gnn_model = LightningClassicGNN(seed=seed, classification=classification, output_dim=output_dim, dropout_p=dropout_p,
                                     num_hidden_features=num_hidden_features,  num_node_features=num_node_features, 
