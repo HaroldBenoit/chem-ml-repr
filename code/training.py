@@ -39,7 +39,7 @@ def main():
     parser.add_argument('--no_log', action="store_true", help="If flag specified, no logging is done")
     parser.add_argument('--cluster', action='store_true' ,help="If flag specified, we are training on the cluster")
     parser.add_argument('--checkpoint', help="Path to the checkpoint of the model (ends with .ckpt). Defaults to None")
-    
+    parser.add_argument('--run_name', default=None, help="Run name for logging purposes")
     ##representation
     parser.add_argument('--hydrogen', action='store_true' ,help="If flag specified, we are using explicit hydrogens")
     parser.add_argument('--boolean', action='store_true', help="If flag specified, we are also using boolean features in the node features")
@@ -151,8 +151,8 @@ def main():
         run_name=f"{run_name}_boolean"
 
         
-    #if args.weighted:
-    #    run_name=f"{run_name}_weighted"
+    if args.run_name is not None:
+        run_name = args.run_name
     
     if args.no_log:
         wandb_logger=False
