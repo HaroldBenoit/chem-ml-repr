@@ -126,6 +126,8 @@ class LightningClassicGNN(pl.LightningModule):
                 self.log(f"auc/{suffix}", float(auc) ,batch_size=batch_size, on_epoch=True)
                 self.log(f"accuracy/{suffix}",accuracy, batch_size=batch_size, on_epoch=True)
             else:
+                self.log(f"mean_pred/{suffix}",x_out.mean())
+                self.log(f"mean_truth/{suffix}", batch.y.mean())
                 loss= F.l1_loss(x_out,batch.y)
                 
             self.log(f"loss/{suffix}", loss, batch_size=batch_size, on_epoch=True)
