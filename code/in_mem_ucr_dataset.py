@@ -5,13 +5,14 @@ import os
 import os.path as osp
 from tqdm import tqdm
 import pathlib
-import pandas as pd
+import numpy as np
 
 from torch_geometric.data import InMemoryDataset, Data
 
 from utils import download_dataset, data_to_graph
 
 import json
+import pandas as pd
 import gzip
 
 from pymatgen.core import Structure
@@ -56,6 +57,17 @@ class InMemoryUcrDataset(InMemoryDataset):
         path = pathlib.Path(self.filename)
         stem = path.stem 
         return [f"{stem}.pt"]
+    
+    
+    @property
+    def y(self) -> torch.Tensor:
+        ## having an explicit target vector is necessary to be able to use stratified splitting
+        
+        big_data, _ = torch.load(self.processed_paths[0])
+        y = big_data.y.squeeze()
+            
+        return y
+            
 
 
     def download(self):

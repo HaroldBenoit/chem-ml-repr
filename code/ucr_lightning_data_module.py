@@ -8,7 +8,7 @@ import math
 class UcrDataModule(pl.LightningDataModule):
     """ Pytorch Ligthning Data Module wrapper around Smiles Dataset to ensure reproducible and easy splitting of the dataset"""
     
-    def __init__(self, dataset:Dataset, seed, train_frac=0.6, valid_frac=0.1, test_frac=0.3, batch_size=32, total_frac=1.0) -> None:
+    def __init__(self, dataset:Dataset, seed, stratified = False, train_frac=0.6, valid_frac=0.1, test_frac=0.3, batch_size=32, total_frac=1.0) -> None:
         super().__init__()
     
         fracs= [train_frac,valid_frac,test_frac]

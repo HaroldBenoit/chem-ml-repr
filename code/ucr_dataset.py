@@ -6,7 +6,7 @@ import os.path as osp
 from tqdm import tqdm
 import pathlib
 import pandas as pd
-
+import numpy as np
 from torch_geometric.data import Dataset
 
 from utils import download_dataset, data_to_graph
@@ -90,7 +90,29 @@ class UcrDataset(Dataset):
             
         return self._aux_data
 
+    @property
+    def y(self) -> torch.Tensor:
+        ## having an explicit target vector is necessary to be able to use stratified splitting
+        y_path = osp.join(self.processed_dir,"y.pt")
+        if not(osp.exists(y_path)):
+            
+            
+            path = pathlib.Path(self.filename)
+            stem = path.stem
+            y=[]
+            
+            for i in range(self.split_factor):
+ 
+                data_list = torch.load(osp.join(self.processed_dir,f"{stem}_{i}.pt"))
+                curr_y = [data.y.numpy() for data in data_list]
+                y = y + curr_y
+            
+            y = torch.tensor(np.array(y).squeeze())
+            torch.save(y,y_path)
+            
+        
 
+        return torch.load(y_path)
 
     def download(self):
         download_dataset(raw_dir=self.raw_dir, filename=self.filename, raw_url=self.raw_url, target_columns=self.target_names,
@@ -103,10 +125,11 @@ class UcrDataset(Dataset):
             1. Read the csv file,excepts a single columns of smiles string, the rest is considered as a target
             For each row:
                 2. ETKDG seeded method 3D coordinate generation
-                3. QM9 featurization of nodes
-                4. Create the complete graph (no self-loops) with covalent bond types as edge attributes
+                3. Featurization of nodes
+                4. Create the complete graph (no self-loops)
+                5. Featurization of edges
                 
-            5. Bundle everything into the Data (graph) type
+            6. Bundle everything into the Data (graph) type
         """
         
         
@@ -228,6 +251,7 @@ class UcrDataset(Dataset):
         stem = path.stem 
         data_list = torch.load(osp.join(self.processed_dir,f"{stem}_{data_split_idx}.pt"))
         
+        ## offset
         correct_idx = idx - aux_data[data_split_idx]["begin"]
         return data_list[correct_idx]
                 
