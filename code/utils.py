@@ -206,7 +206,7 @@ def from_structure_to_graph(struct:Structure, y:torch.Tensor, name:str, idx:int)
         return None
 
     try:
-        edge_index, edge_attr = edge_features(data=struct, z=z, distance_matrix=struct.distance_matrix)
+        edge_index, edge_attr = edge_features(data=struct, z=z)
     except:
         print("Problem with edge features")
         return None

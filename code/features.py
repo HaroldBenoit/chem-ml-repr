@@ -13,6 +13,7 @@ from rdkit.Chem import AllChem
 from pymatgen.core import Molecule, Structure, Element
 from pymatgen.core.bonds import CovalentBond
 from pymatgen.io.babel import BabelMolAdaptor
+from pymatgen.util.coord import all_distances
 
 
 ## removing warnings
@@ -112,7 +113,7 @@ def pymatgen_node_features(data: Union[Chem.rdchem.Mol,Structure]) -> Tuple[torc
 
 
 
-def edge_features(data: Union[Chem.rdchem.Mol,Structure], z:torch.Tensor, pos:Optional[torch.Tensor] = None, distance_matrix:Optional[np.ndarray]=None) -> Tuple[torch.Tensor, torch.Tensor]:
+def edge_features(data: Union[Chem.rdchem.Mol,Structure], z:torch.Tensor, pos:Optional[torch.Tensor] = None) -> Tuple[torch.Tensor, torch.Tensor]:
     
     #4. Create the complete graph (no self-loops) with covalent bond types as edge attributes
     
@@ -169,10 +170,15 @@ def edge_features(data: Union[Chem.rdchem.Mol,Structure], z:torch.Tensor, pos:Op
     (row, col) = edge_index
 
     
+    ## ALL DISTANCES ARE IN ANGSTORM UNIT
+    
     if is_molecule:
         ## in the case of smiles molecules, we need to compute distances
         dist = torch.norm(pos[col] - pos[row], p=2, dim=-1).view(-1, 1)
     elif is_structure:
+        ## can't call struct.distance_matrix as it returns fractional coordinates, we want absolute coordinates to permit knowledge transfer between molecules and crystals
+        distance_matrix = all_distances(struct.cart_coords, struct.cart_coords)
+        
         dist = torch.tensor(distance_matrix[row,col],dtype=torch.float).view(-1,1)
     
     ## sometimes we're dealing with a single atom object, need to skip then
@@ -181,11 +187,6 @@ def edge_features(data: Union[Chem.rdchem.Mol,Structure], z:torch.Tensor, pos:Op
         # z gives us atomic number
         weights=  torch.tensor([(atom_number_to_radius[int(z[i])]+ atom_number_to_radius[int(z[j])])/2 for i,j in edge_index.T]).view(-1,1)
         dist = (dist/weights).view(-1,1)
-    
-        ## normalization
-        # for molecules, normalize by bond length
-        # for crystals, normalize 
-        dist = dist / dist.max()
     
     ## add distance feature to the rest of the features
     pseudo = edge_attr
