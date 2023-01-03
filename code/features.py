@@ -183,7 +183,7 @@ def edge_features(data: Union[Chem.rdchem.Mol,Structure], z:torch.Tensor, pos:Op
     
     ## sometimes we're dealing with a single atom object, need to skip then
     if dist.numel() > 0:
-        ## 
+        ## as we would like to focus on atom intereactions, we normalize the distances between atoms by a weigthed average of their covalent radius
         # z gives us atomic number
         weights=  torch.tensor([(atom_number_to_covalent_radius[int(z[i])]+ atom_number_to_covalent_radius[int(z[j])])/2 for i,j in edge_index.T]).view(-1,1)
         dist = (dist/weights).view(-1,1)
