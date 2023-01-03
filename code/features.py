@@ -27,7 +27,7 @@ from collections import defaultdict
 
 AVERAGE_ELECTRONEGATIVITY=1.713
 
-atom_number_to_radius = torch.load("../important_data/atom_number_to_radius.pt")
+atom_number_to_covalent_radius = torch.load("../important_data/atom_number_to_covalent_radius.pt")
 
 
 
@@ -183,9 +183,9 @@ def edge_features(data: Union[Chem.rdchem.Mol,Structure], z:torch.Tensor, pos:Op
     
     ## sometimes we're dealing with a single atom object, need to skip then
     if dist.numel() > 0:
-        ## must weigh distance before normalizing as units [Angstrom] need to match
+        ## 
         # z gives us atomic number
-        weights=  torch.tensor([(atom_number_to_radius[int(z[i])]+ atom_number_to_radius[int(z[j])])/2 for i,j in edge_index.T]).view(-1,1)
+        weights=  torch.tensor([(atom_number_to_covalent_radius[int(z[i])]+ atom_number_to_covalent_radius[int(z[j])])/2 for i,j in edge_index.T]).view(-1,1)
         dist = (dist/weights).view(-1,1)
     
     ## add distance feature to the rest of the features
