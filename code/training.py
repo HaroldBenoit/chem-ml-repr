@@ -139,12 +139,9 @@ def main():
     
     ## WANDB
       
-    project=f"{args.dataset}-project-post"
+    project=f"{args.dataset}-project-post2"
     run_name=f"target_{target}" 
-    #quirk of wandbs
-    if "mu" in target:
-        run_name=f"target__{target}"
-        
+
     if args.hydrogen:
         run_name=f"{run_name}_hydrogen"
         
