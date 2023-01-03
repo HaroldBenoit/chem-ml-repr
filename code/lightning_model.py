@@ -119,8 +119,8 @@ class LightningClassicGNN(pl.LightningModule):
                 prob_cpu = prob.detach().cpu().numpy()
                 auc= roc_auc_score(y_true= batch_y_cpu, y_score= prob_cpu)
                 
-                pred = x_out.argmax(-1)
-                label = batch.y
+                pred = x_out.argmax(-1).view(-1,1)
+                label = batch.y.view(-1,1)
                 accuracy = (pred ==label).sum() / pred.shape[0]
 
                 self.log(f"auc/{suffix}", float(auc) ,batch_size=batch_size, on_epoch=True)

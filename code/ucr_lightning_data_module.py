@@ -4,14 +4,15 @@ from torch_geometric.loader import  DataLoader
 import math
 from sklearn.model_selection import StratifiedShuffleSplit
 import numpy as np
-from typing import Union
+from typing import Union, Optional
 from in_mem_ucr_dataset import InMemoryUcrDataset
 from ucr_dataset import UcrDataset
 
 class UcrDataModule(pl.LightningDataModule):
     """ Pytorch Ligthning Data Module wrapper around Smiles Dataset to ensure reproducible and easy splitting of the dataset"""
     
-    def __init__(self, dataset:Union[InMemoryUcrDataset, UcrDataset], seed, stratified = False, train_frac=0.6, valid_frac=0.1, test_frac=0.3, batch_size=32, total_frac=1.0) -> None:
+    def __init__(self, dataset:Union[InMemoryUcrDataset, UcrDataset], seed, stratified = False, target_idx:Optional[int] = None , train_frac=0.6, valid_frac=0.1, test_frac=0.3, batch_size=32, total_frac=1.0) -> None:
+        ## target_idx is only revelant when using stratified
         super().__init__()
     
         fracs= [train_frac,valid_frac,test_frac]
@@ -34,9 +35,13 @@ class UcrDataModule(pl.LightningDataModule):
         if stratified:
             y= dataset.y.numpy()
             y_len = y.shape[0]
+            
+            ## need to select the target in the case of multi-target datasets
+            if len(y.shape) > 1:
+                y = y[:,target_idx]
+                
             ## trimming the dataset by total_frac
             y = y[:int(y_len*total_frac)]
-            
             x = np.arange(y.shape[0])
 
             #first split to get training data

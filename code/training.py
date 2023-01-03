@@ -105,12 +105,14 @@ def main():
         transforms = Compose([filter_target(target_names=dataset_class.target_names, target=target), filter_boolean_features])
 
 
-        
+    use_stratified = dataset_class.is_classification[target]
         
     
     dataset = dataset_class(root=root, add_hydrogen=args.hydrogen,transform=transforms)
+    
+    target_idx = dataset_class.target_names.index(target)
     # from torch dataset, create lightning data module to make sure training splits are always done the same ways
-    data_module = UcrDataModule(dataset=dataset, seed=seed, batch_size=args.batch_size, total_frac = args.total_frac)
+    data_module = UcrDataModule(dataset=dataset, seed=seed, batch_size=args.batch_size, total_frac = args.total_frac, stratified=use_stratified, target_idx=target_idx)
 
     if debug:
         pdb.set_trace(header="After dataset transform")
