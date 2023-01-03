@@ -310,6 +310,7 @@ def main():
         dataset_class= dataset_dict[args.dataset]
         #forcing processing of dataset by calling it
         dataset = dataset_class(root=args.root, add_hydrogen=args.hydrogen, seed=args.seed)
+        y = dataset.y
         print(f"Available targets for {args.dataset} are: {dataset_class.target_names}")
     else:
         raise ValueError(f"Given dataset name {args.dataset} is not in the list of available datasets {list(dataset_dict.keys())}")
