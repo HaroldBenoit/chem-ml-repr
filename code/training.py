@@ -40,6 +40,7 @@ def main():
     parser.add_argument('--cluster', action='store_true' ,help="If flag specified, we are training on the cluster")
     parser.add_argument('--checkpoint', help="Path to the checkpoint of the model (ends with .ckpt). Defaults to None")
     parser.add_argument('--run_name', default=None, help="Run name for logging purposes")
+    parser.add_argument('--project_name', default=None, help="Project name for logging purposes")
     ##representation
     parser.add_argument('--hydrogen', action='store_true' ,help="If flag specified, we are using explicit hydrogens")
     parser.add_argument('--boolean', action='store_true', help="If flag specified, we are also using boolean features in the node features")
@@ -139,7 +140,11 @@ def main():
     
     ## WANDB
       
-    project=f"{args.dataset}-project-post2"
+    if args.project_name is None:
+        project=f"{args.dataset}-project-post2"
+    else:
+        project = args.project_name
+        
     run_name=f"target_{target}" 
 
     if args.hydrogen:
