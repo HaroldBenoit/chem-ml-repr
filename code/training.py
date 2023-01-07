@@ -38,7 +38,8 @@ def main():
     parser.add_argument('--debug', action='store_true', help="If flag specified, activate breakpoints in the script")
     parser.add_argument('--no_log', action="store_true", help="If flag specified, no logging is done")
     parser.add_argument('--cluster', action='store_true' ,help="If flag specified, we are training on the cluster")
-    parser.add_argument('--checkpoint', help="Path to the checkpoint of the model (ends with .ckpt). Defaults to None")
+    parser.add_argument('--model_checkpoint', help="Path to the checkpoint of the model (ends with .ckpt). Defaults to None")
+    parser.add_argument('--training_checkpoint', help="Path to the checkpoint of the model and its training (ends with .ckpt). Defaults to None")
     parser.add_argument('--run_name', default=None, help="Run name for logging purposes")
     parser.add_argument('--project_name', default=None, help="Project name for logging purposes")
     ##representation
@@ -132,10 +133,13 @@ def main():
     ## need total_steps for lr_scheduler
     total_steps = int(len(data_module.train_dataloader()) / args.batch_size) * num_epochs * 2
     
-    gnn_model = LightningClassicGNN(seed=seed, classification=classification, output_dim=output_dim, dropout_p=dropout_p,
+    if args.model_checkpoint is None:
+        gnn_model = LightningClassicGNN(seed=seed, classification=classification, output_dim=output_dim, dropout_p=dropout_p,
                                     num_hidden_features=num_hidden_features,  num_node_features=num_node_features, 
                                     num_edge_features=num_edge_features, num_message_passing_layers=args.num_message_layers, 
                                     total_steps=total_steps)
+    else:
+        gnn_model = LightningClassicGNN.load_from_checkpoint(args.model_checkpoint)
     
     
     ## WANDB
@@ -171,15 +175,18 @@ def main():
     ## TRAINER
     
     strategy = "ddp" if args.cluster else None
+    
     ## creating early stop callback to ensure we don't overfit
-    if num_epochs > 10:
-        patience = num_epochs //2
-    else:
-        patience = num_epochs
+    patience = num_epochs //2
     early_stop_callback = EarlyStopping(monitor="loss/valid", mode="min", patience=patience, min_delta=0.00)
     lr_monitor = LearningRateMonitor(logging_interval='step')
     
-    callbacks = [early_stop_callback, lr_monitor] if not(args.no_log) else [early_stop_callback]
+    callbacks=[]
+        
+    if num_epochs > 10:
+        callbacks.append(early_stop_callback)
+    if not(args.no_log):
+        callbacks.append(lr_monitor)
     
     trainer = pl.Trainer(logger=wandb_logger, deterministic=False, default_root_dir="../training_artifacts/", precision=32,
 	 strategy=strategy,max_epochs=num_epochs ,log_every_n_steps=log_freq, devices=devices, accelerator=accelerator, callbacks=callbacks, fast_dev_run=False, val_check_interval=args.val_check_interval)
@@ -193,7 +200,7 @@ def main():
     #trainer.tune(gnn_model,datamodule=data_module)
     
     # we can resume from a checkpoint using trainer.fit(ckpth_path="some/path/to/my_checkpoint.ckpt")
-    trainer.fit(gnn_model, datamodule=data_module, ckpt_path=args.checkpoint)
+    trainer.fit(gnn_model, datamodule=data_module, ckpt_path=args.training_checkpoint)
     
     if debug:
         pdb.set_trace(header="After trainer fit")
