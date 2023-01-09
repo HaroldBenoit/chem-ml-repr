@@ -30,6 +30,10 @@ def main():
     parser.add_argument('--target', required=True, help="Target name i.e. predicted value in dataset")
     parser.add_argument('--seed', default=42, type=int, help="Seed that dictates dataset splitting")
     parser.add_argument('--total_frac', default=1.0, type=float, help="Total fraction of the dataset to use, can be useful to set < 1.0 for experimentation")
+    parser.add_argument('--train_frac', default=0.6, type=float, help="Fraction of the dataset to use as training set")
+    parser.add_argument('--valid_frac', default=0.6, type=float, help="Fraction of the dataset to use as validation set")
+    parser.add_argument('--test_frac', default=0.6, type=float, help="Fraction of the dataset to use as testing set")
+
     #parser.add_argument('--weighted', action="store_true", help="If flag specified, make the edge distances weighted by atomic radius")
     #parser.add_argument('--no_distance', action='store_true',help="If flag specified, don't compute distance")
     #parser.add_argument('--dist_present', action="store_true", help="If flag specified, dist has been computed")
