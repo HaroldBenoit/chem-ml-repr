@@ -21,9 +21,6 @@ import datasets_classes
 
 def main():
     
-    parser = argparse.ArgumentParser(prog="Training", description="Training pipeline")
-
-    
     ##dataset
     parser.add_argument('--root', required=True, help="Root path where the dataset is stored or to be stored after processing")
     parser.add_argument('--dataset', required=True, help=f"Dataset name. Available datasets are {list(datasets_classes.dataset_dict.keys())}")
@@ -33,6 +30,8 @@ def main():
     parser.add_argument('--train_frac', default=0.6, type=float, help="Fraction of the dataset to use as training set")
     parser.add_argument('--valid_frac', default=0.6, type=float, help="Fraction of the dataset to use as validation set")
     parser.add_argument('--test_frac', default=0.6, type=float, help="Fraction of the dataset to use as testing set")
+    parser.add_argument('--scaffold', action='store_true', help="If flag specified, use scaffold splitting (only available for molecular datasets")
+
 
     #parser.add_argument('--weighted', action="store_true", help="If flag specified, make the edge distances weighted by atomic radius")
     #parser.add_argument('--no_distance', action='store_true',help="If flag specified, don't compute distance")
@@ -111,14 +110,16 @@ def main():
         transforms = Compose([filter_target(target_names=dataset_class.target_names, target=target), filter_boolean_features])
 
 
-    use_stratified = dataset_class.is_classification[target]
+    ## stratified if classification but scaffold has priority over it
+    use_stratified = dataset_class.is_classification[target] and not(args.scaffold)
+    
         
     
     dataset = dataset_class(root=root, add_hydrogen=args.hydrogen,transform=transforms)
     
     target_idx = dataset_class.target_names.index(target)
     # from torch dataset, create lightning data module to make sure training splits are always done the same ways
-    data_module = UcrDataModule(dataset=dataset, seed=seed, batch_size=args.batch_size, total_frac = args.total_frac, stratified=use_stratified, target_idx=target_idx)
+    data_module = UcrDataModule(dataset=dataset, seed=seed, batch_size=args.batch_size, total_frac = args.total_frac, stratified=use_stratified, scaffold_split=args.scaffold target_idx=target_idx)
 
     if debug:
         pdb.set_trace(header="After dataset transform")
