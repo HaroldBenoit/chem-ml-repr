@@ -1,14 +1,14 @@
 from ucr_lightning_data_module import UcrDataModule
 from lightning_model import LightningClassicGNN
 import pytorch_lightning as pl
-from pytorch_lightning.loggers import WandbLogger
+from pytorch_lightning.loggers import WandbLogger, CSVLogger
 from pytorch_lightning.callbacks.early_stopping import EarlyStopping
 from pytorch_lightning.callbacks import LearningRateMonitor
 import torch
 # making sure we are as determinstic as possibe
 #torch.use_deterministic_algorithms(True)
 import numpy as np
-
+from time import gmtime, strftime   
 from torch_geometric.data import Data
 from typing import List, Callable
 from functools import partial
@@ -18,7 +18,7 @@ import wandb
 import pdb
 import argparse
 import datasets_classes
-
+import os 
 def main():
     
     parser = argparse.ArgumentParser(prog="Training", description="Training pipeline")
@@ -48,6 +48,7 @@ def main():
     parser.add_argument('--training_checkpoint', help="Path to the checkpoint of the model and its training (ends with .ckpt). Defaults to None")
     parser.add_argument('--run_name', default=None, help="Run name for logging purposes")
     parser.add_argument('--project_name', default=None, help="Project name for logging purposes")
+    parser.add_argument('--results', action='store_true', help="If flag specified, we want to have the final results for this model")
     ##representation
     parser.add_argument('--hydrogen', action='store_true' ,help="If flag specified, we are using explicit hydrogens")
     parser.add_argument('--boolean', action='store_true', help="If flag specified, we are also using boolean features in the node features")
@@ -196,7 +197,17 @@ def main():
     if not(args.no_log):
         callbacks.append(lr_monitor)
     
-    trainer = pl.Trainer(logger=wandb_logger, deterministic=False, default_root_dir="../training_artifacts/", precision=32,
+    if args.results:
+        save_dir = "../experiments_results"
+        csv_log_name = f"{project}_{run_name}"
+        version = "final_results_seed_{args.seed}"
+        logger = CSVLogger(save_dir=save_dir, name=csv_log_name, version= version)
+    else:
+        logger=wandb_logger
+        
+
+    
+    trainer = pl.Trainer(logger=logger, deterministic=False, default_root_dir="../training_artifacts/", precision=32,
 	 strategy=strategy,max_epochs=num_epochs ,log_every_n_steps=log_freq, devices=devices, accelerator=accelerator, callbacks=callbacks, fast_dev_run=False, val_check_interval=args.val_check_interval)
 
     # strategy="ddp"   
@@ -213,10 +224,47 @@ def main():
     if debug:
         pdb.set_trace(header="After trainer fit")
     
-    trainer.validate(gnn_model, datamodule=data_module)
+    if args.results:
+        filename = "metrics.csv"
+        path = os.path.join(save_dir, name, version, filename)
+        curr_res = pd.read_csv(path)
+        ## need to differentiate between classification and regression
+        
+        if classification:
+            metric_name = "auc"
+            metric_value = curr_res['auc/valid'].max()
+        else:
+            metric_name = "mae"
+            metric_value = curr_res["loss/valid"].min()
+            
+        # df schema
+        # "dataset":[],
+        # "target":[],
+        # "seed":[],
+        # "time":[],
+        # "metric_name":[],
+        # "metric_value":[]
+        
+        time = pd.Timestamp.now()
+        new_row = pd.Series([args.dataset, args.target, args.seed, time, metric_name, metric_value])
+        
+        global_res = pd.read_csv("../experiments_results/global_results.csv")
+        
+        
+
+            
+        
+    ## for validation, it is important to make sure that we're running everything on the same GPU not to have duplicate batches
+    #trainer = pl.Trainer( deterministic=False, default_root_dir="../training_artifacts_test/", precision=32, accelerator='gpu', devices=1,  logger = False)
+    #trainer = pl.Trainer(logger=logger)
+    #
+    #val_metrics = trainer.validate(gnn_model, datamodule=data_module)
+    #print(strftime("%Y-%m-%d %H:%M:%S", gmtime()))
+    #print("VAL METRICS",val_metrics)
     
     wandb.finish()
     
+
     
     
     
