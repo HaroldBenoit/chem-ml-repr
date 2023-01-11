@@ -67,6 +67,15 @@ class InMemoryUcrDataset(InMemoryDataset):
         y = big_data.y.squeeze()
             
         return y
+    
+    @property
+    def names(self) -> torch.Tensor:
+        ## having an explicit target vector is necessary to be able to use stratified splitting
+        
+        big_data, _ = torch.load(self.processed_paths[0])
+        y = big_data.name
+            
+        return y
             
 
 

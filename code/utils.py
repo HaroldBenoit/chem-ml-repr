@@ -128,7 +128,7 @@ def from_smiles_to_molecule_and_coordinates(smile: str, seed:int, add_hydrogen: 
     except:
         print("can't add hydrogen")
         return None, None
-    
+        
     ## 3D conformer generation
     ps = rdDistGeom.ETKDGv3()
     ps.randomSeed = seed

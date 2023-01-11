@@ -3,6 +3,7 @@ import pytorch_lightning as pl
 from torch_geometric.loader import  DataLoader
 import math
 from sklearn.model_selection import StratifiedShuffleSplit
+import deepchem as dc
 import numpy as np
 from typing import Union, Optional
 from in_mem_ucr_dataset import InMemoryUcrDataset
@@ -11,9 +12,12 @@ from ucr_dataset import UcrDataset
 class UcrDataModule(pl.LightningDataModule):
     """ Pytorch Ligthning Data Module wrapper around Smiles Dataset to ensure reproducible and easy splitting of the dataset"""
     
-    def __init__(self, dataset:Union[InMemoryUcrDataset, UcrDataset], seed, stratified = False, target_idx:Optional[int] = None , train_frac=0.6, valid_frac=0.1, test_frac=0.3, batch_size=32, total_frac=1.0) -> None:
+    def __init__(self, dataset:Union[InMemoryUcrDataset, UcrDataset], seed, stratified = False, scaffold_split = False, target_idx:Optional[int] = None , train_frac=0.6, valid_frac=0.1, test_frac=0.3, batch_size=32, total_frac=1.0) -> None:
         ## target_idx is only revelant when using stratified
         super().__init__()
+        
+        if stratified and scaffold_split:
+            raise ValueError("Can't use stratified and scaffold split at the same time")
     
         fracs= [train_frac,valid_frac,test_frac]
 
@@ -64,7 +68,22 @@ class UcrDataModule(pl.LightningDataModule):
             
             self.valid_data = self.dataset[val_index]
             self.test_data = self.dataset[test_index]
-
+        elif scaffold_split:
+            # scaffold splitting will fail on materials data since it's not smiles strings
+            smiles = dataset.names
+            
+            Xs = np.arange(len(smiles))
+            Ys = np.ones(len(smiles))
+            
+            dataset = dc.data.DiskDataset.from_numpy(X=Xs,y=Ys,w=np.zeros(len(smiles)),ids=smiles)
+            scaffoldsplitter = dc.splits.ScaffoldSplitter()
+            train_index,valid_index, test_index = scaffoldsplitter.split(dataset=dataset, frac_train=train_frac, frac_valid=valid_frac, frac_test= test_frac )
+            
+            self.train_data = self.dataset[train_index]
+            self.valid_data = self.dataset[valid_index]
+            self.test_data = self.dataset[test_index]
+            
+            
         else:
             # splitting the dataset
             self.dataset = self.dataset.shuffle()

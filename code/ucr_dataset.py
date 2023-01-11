@@ -113,6 +113,31 @@ class UcrDataset(Dataset):
         
 
         return torch.load(y_path)
+    
+    
+    @property
+    def names(self) -> torch.Tensor:
+        ## having an explicit names vector is necessary to be able to use scaffold splitting
+        ## as names = smiles
+        y_path = osp.join(self.processed_dir,"names.pt")
+        if not(osp.exists(y_path)):
+            
+            
+            path = pathlib.Path(self.filename)
+            stem = path.stem
+            y=[]
+            
+            for i in range(self.split_factor):
+ 
+                data_list = torch.load(osp.join(self.processed_dir,f"{stem}_{i}.pt"))
+                curr_y = [data.name for data in data_list]
+                y = y + curr_y
+            
+            torch.save(y,y_path)
+            
+        
+
+        return torch.load(y_path)
 
     def download(self):
         download_dataset(raw_dir=self.raw_dir, filename=self.filename, raw_url=self.raw_url, target_columns=self.target_names,
