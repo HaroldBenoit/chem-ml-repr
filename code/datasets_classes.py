@@ -204,6 +204,89 @@ class MatBenchMpEForm(UcrDataset):
         super().__init__(root=root, filename = filename, raw_url=raw_url, data_column_name=data_column_name, target_names= MatBenchMpEForm.target_names,
                      add_hydrogen=add_hydrogen, seed=seed, transform=transform, pre_transform=pre_transform, pre_filter=pre_filter)
         
+        
+class MatBenchPhonons(UcrDataset):
+    """Load matchbench_phonons dataset
+        The raw data contains a compressed json file containing informations on structure and target
+    """
+    
+    target_names = ['phonons']
+    is_classification={target:False for target in target_names}
+    
+    def __init__(self, root: str, add_hydrogen=False, seed=GLOBAL_SEED, transform: Optional[Callable] = None,
+                 pre_transform: Optional[Callable] = None,
+                 pre_filter: Optional[Callable] = None):
+        
+        filename="matbench_phonons.json.gz"
+        raw_url= "https://ml.materialsproject.org/projects/matbench_phonons.json.gz"
+        data_column_name="data"
+
+        super().__init__(root=root, filename = filename, raw_url=raw_url, data_column_name=data_column_name, target_names= MatBenchPhonons.target_names,
+                     add_hydrogen=add_hydrogen, seed=seed, transform=transform, pre_transform=pre_transform, pre_filter=pre_filter)
+
+class MatBenchDieletric(UcrDataset):
+    """Load matchbench_dieletric dataset
+        The raw data contains a compressed json file containing informations on structure and target
+    """
+    
+    target_names = ['n']
+    is_classification={target:False for target in target_names}
+    
+    def __init__(self, root: str, add_hydrogen=False, seed=GLOBAL_SEED, transform: Optional[Callable] = None,
+                 pre_transform: Optional[Callable] = None,
+                 pre_filter: Optional[Callable] = None):
+        
+        raw_url="https://ml.materialsproject.org/projects/matbench_dielectric.json.gz"
+        filename= "matbench_dielectric.json.gz"
+        data_column_name="data"
+
+        super().__init__(root=root, filename = filename, raw_url=raw_url, data_column_name=data_column_name, target_names= MatBenchDieletric.target_names,
+                     add_hydrogen=add_hydrogen, seed=seed, transform=transform, pre_transform=pre_transform, pre_filter=pre_filter)
+        
+        
+class MatBenchLogGvrh(UcrDataset):
+    """Load matchbench_dieletric dataset
+        The raw data contains a compressed json file containing informations on structure and target
+    """
+    
+    target_names = ['log_gvrh']
+    is_classification={target:False for target in target_names}
+    
+    def __init__(self, root: str, add_hydrogen=False, seed=GLOBAL_SEED, transform: Optional[Callable] = None,
+                 pre_transform: Optional[Callable] = None,
+                 pre_filter: Optional[Callable] = None):
+        
+        raw_url="https://ml.materialsproject.org/projects/matbench_log_gvrh.json.gz"
+        filename= "matbench_log_gvrh.json.gz"
+        data_column_name="data"
+
+        super().__init__(root=root, filename = filename, raw_url=raw_url, data_column_name=data_column_name, target_names= MatBenchLogGvrh.target_names,
+                     add_hydrogen=add_hydrogen, seed=seed, transform=transform, pre_transform=pre_transform, pre_filter=pre_filter)
+
+
+
+class MatBenchPerovskites(UcrDataset):
+    """Load matchbench_dieletric dataset
+        The raw data contains a compressed json file containing informations on structure and target
+    """
+    
+    target_names = ['e_form']
+    is_classification={target:False for target in target_names}
+    
+    def __init__(self, root: str, add_hydrogen=False, seed=GLOBAL_SEED, transform: Optional[Callable] = None,
+                 pre_transform: Optional[Callable] = None,
+                 pre_filter: Optional[Callable] = None):
+        
+        raw_url="https://ml.materialsproject.org/projects/matbench_perovskites.json.gz"
+        filename= "matbench_perovskites.json.gz"
+        data_column_name="data"
+
+        super().__init__(root=root, filename = filename, raw_url=raw_url, data_column_name=data_column_name, target_names= MatBenchPerovskites.target_names,
+                     add_hydrogen=add_hydrogen, seed=seed, transform=transform, pre_transform=pre_transform, pre_filter=pre_filter)
+        
+
+
+        
 
 class BaceDataset(InMemoryUcrDataset):
     """ 
@@ -291,7 +374,8 @@ class BBBPDataset(InMemoryUcrDataset):
 
 
 
-dataset_dict= {"qm9": QM9Dataset, "bace":BaceDataset, "bbbp": BBBPDataset, "freesolv":FreeSolvDataset, "muv":MUVDataset, "mp_is_metal":MatBenchMpIsMetal, "mp_gap":MatBenchMpGap,"mp_e_form":MatBenchMpEForm}
+dataset_dict= {"qm9": QM9Dataset, "bace":BaceDataset, "bbbp": BBBPDataset, "freesolv":FreeSolvDataset, "muv":MUVDataset, "mp_is_metal":MatBenchMpIsMetal, "mp_gap":MatBenchMpGap,"mp_e_form":MatBenchMpEForm,
+               "phonons":MatBenchPhonons, "dieletric":MatBenchDieletric, "log_gvrh":MatBenchLogGvrh, "perovskites":MatBenchPerovskites}
 
 
 def main():
