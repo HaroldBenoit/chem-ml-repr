@@ -19,6 +19,8 @@ import pdb
 import argparse
 import datasets_classes
 import os 
+import pandas as pd
+
 def main():
     
     parser = argparse.ArgumentParser(prog="Training", description="Training pipeline")
@@ -224,6 +226,9 @@ def main():
     if debug:
         pdb.set_trace(header="After trainer fit")
     
+    
+    ## logging the best validation metric into the global results dataframe
+    
     if args.results:
         filename = "metrics.csv"
         path = os.path.join(save_dir, name, version, filename)
@@ -246,9 +251,19 @@ def main():
         # "metric_value":[]
         
         time = pd.Timestamp.now()
-        new_row = pd.Series([args.dataset, args.target, args.seed, time, metric_name, metric_value])
         
-        global_res = pd.read_csv("../experiments_results/global_results.csv")
+        columns = ["dataset","target","seed","time","metric_name", "metric_value"]
+        new_row = pd.DataFrame([[args.dataset, args.target, args.seed, time, metric_name, metric_value]],columns=columns)
+        
+        global_res_path = "../experiments_results/global_results.csv"
+        if os.path.exists(global_res_path):
+            global_res = pd.read_csv(global_res_path)
+        else:
+            global_res = pd.DataFrame([],columns=columns)
+            
+        global_res = pd.concat([global_res, new_row])
+
+        global_res.to_csv(global_res_path)
         
         
 
