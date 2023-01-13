@@ -1,0 +1,12 @@
+for i in "bbbp p_np" "freesolv y" "bace Class" "bace pIC50" 
+do
+    set -- $i # converts the "tuple" into the pram args $1 $2
+    for seed in 100 200 300
+        do
+
+        python3 training.py --no_log --results --cluster --hydrogen --root ../data/$1 --target $2 --dataset $1 --train_frac 0.8 --valid_frac 0.2 --test_frac 0.0 --seed $seed --num_message_layers 2 --scaffold --epochs 100
+        sleep 15s
+
+        done
+
+done

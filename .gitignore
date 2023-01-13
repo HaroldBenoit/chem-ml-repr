@@ -18,6 +18,7 @@ lightning_l*
 
 wandb/
 training_artifacts/
+experiments_results/
 
 # csv files
 

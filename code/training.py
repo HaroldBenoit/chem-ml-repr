@@ -33,8 +33,8 @@ def main():
     parser.add_argument('--seed', default=42, type=int, help="Seed that dictates dataset splitting")
     parser.add_argument('--total_frac', default=1.0, type=float, help="Total fraction of the dataset to use, can be useful to set < 1.0 for experimentation")
     parser.add_argument('--train_frac', default=0.6, type=float, help="Fraction of the dataset to use as training set")
-    parser.add_argument('--valid_frac', default=0.6, type=float, help="Fraction of the dataset to use as validation set")
-    parser.add_argument('--test_frac', default=0.6, type=float, help="Fraction of the dataset to use as testing set")
+    parser.add_argument('--valid_frac', default=0.2, type=float, help="Fraction of the dataset to use as validation set")
+    parser.add_argument('--test_frac', default=0.2, type=float, help="Fraction of the dataset to use as testing set")
     parser.add_argument('--scaffold', action='store_true', help="If flag specified, use scaffold splitting (only available for molecular datasets)")
 
 
@@ -125,7 +125,7 @@ def main():
     
     target_idx = dataset_class.target_names.index(target)
     # from torch dataset, create lightning data module to make sure training splits are always done the same ways
-    data_module = UcrDataModule(dataset=dataset, seed=seed, batch_size=args.batch_size, total_frac = args.total_frac, stratified=use_stratified, scaffold_split=args.scaffold, target_idx=target_idx)
+    data_module = UcrDataModule(dataset=dataset, seed=seed, batch_size=args.batch_size, total_frac = args.total_frac, stratified=use_stratified, scaffold_split=args.scaffold, target_idx=target_idx, train_frac=args.train_frac, valid_frac=args.valid_frac, test_frac=args.test_frac)
 
     if debug:
         pdb.set_trace(header="After dataset transform")
@@ -231,7 +231,7 @@ def main():
     
     if args.results:
         filename = "metrics.csv"
-        path = os.path.join(save_dir, name, version, filename)
+        path = os.path.join(save_dir, csv_log_name, version, filename)
         curr_res = pd.read_csv(path)
         ## need to differentiate between classification and regression
         
@@ -252,14 +252,16 @@ def main():
         
         time = pd.Timestamp.now()
         
-        columns = ["dataset","target","seed","time","metric_name", "metric_value"]
-        new_row = pd.DataFrame([[args.dataset, args.target, args.seed, time, metric_name, metric_value]],columns=columns)
+        columns = ["dataset","target","seed","time", "epochs", "train_frac", "valid_frac", "metric_name", "metric_value"]
+        new_row = pd.DataFrame([[args.dataset, args.target, args.seed, time, num_epochs, args.train_frac, args.valid_frac, metric_name, metric_value]],columns=columns)
+        new_row = new_row.set_index('dataset')
         
         global_res_path = "../experiments_results/global_results.csv"
         if os.path.exists(global_res_path):
-            global_res = pd.read_csv(global_res_path)
+            global_res = pd.read_csv(global_res_path, index_col='dataset')
         else:
             global_res = pd.DataFrame([],columns=columns)
+            global_res = global_res.set_index('dataset')
             
         global_res = pd.concat([global_res, new_row])
 
