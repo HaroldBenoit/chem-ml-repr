@@ -66,13 +66,13 @@ class LightningClassicGNN(pl.LightningModule):
                 (Dropout(p = self.dropout_p), "x0b -> x0c"),]
         
         #other message passing layers
-        for i in range(num_message_passing_layers):
+        for i in range(num_message_passing_layers-1):
             layers.append((GeneralConv(self.hidden, self.hidden), f"x{i}c, edge_index -> x{i+1}"))
             layers.append((BatchNorm(in_channels=self.hidden), f"x{i+1} -> x{i+1}a"))
             layers.append((PReLU(), f"x{i+1}a -> x{i+1}b"))
             layers.append((Dropout(p = self.dropout_p), f"x{i+1}b -> x{i+1}c"))
             
-        last_i = num_message_passing_layers -1
+        last_i = num_message_passing_layers - 2
         layers.append((global_add_pool, f"x{last_i +1}c, batch_index -> x{last_i+2}"))
         layers.append((Linear(self.hidden,self.hidden), f"x{last_i +2} -> x{last_i +3}"))
         layers.append((Linear(self.hidden, self.output_dim), f"x{last_i +3} -> x_out"))
