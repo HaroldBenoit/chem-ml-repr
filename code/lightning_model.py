@@ -137,8 +137,8 @@ class LightningClassicGNN(pl.LightningModule):
                 self.log(f"mean_pred/{suffix}",x_out.mean(), sync_dist=not(is_train))
                 self.log(f"mean_truth/{suffix}", batch.y.mean(), sync_dist=not(is_train))
                 loss= F.l1_loss(x_out,batch.y)
-                rmse = torch.sqrt(F.mse_loss(x_out,batch.y))
-                self.log(f"rmse/{suffix}",rmse, batch_size=batch_size,on_epoch=True,sync_dist=not(is_train))
+                #rmse = torch.sqrt(F.mse_loss(x_out,batch.y))
+                #self.log(f"rmse/{suffix}",rmse, batch_size=batch_size,on_epoch=True,sync_dist=not(is_train))
                 
             self.log(f"loss/{suffix}", loss, batch_size=batch_size, on_epoch=True, sync_dist=not(is_train))
             
