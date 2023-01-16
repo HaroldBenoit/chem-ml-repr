@@ -239,8 +239,8 @@ def main():
             metric_name = "auc"
             metric_value = curr_res['auc/valid'].max()
         else:
-            metric_name = "rmse"
-            metric_value = curr_res["rmse/valid"].min()
+            metric_name = "mae"
+            metric_value = curr_res["loss/valid"].min()
             
         # df schema
         # "dataset":[],

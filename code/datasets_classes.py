@@ -357,16 +357,16 @@ class LipoDataset(InMemoryUcrDataset):
     """
 
     target_names = ['exp']
-    is_classification={'y':False}
+    is_classification={'exp':False}
 
     
     def __init__(self, root: str, add_hydrogen=False, seed=GLOBAL_SEED, transform: Optional[Callable] = None, pre_transform: Optional[Callable] = None, pre_filter: Optional[Callable] = None):
                 
-        filename="Lipophilicity.csv""
+        filename="Lipophilicity.csv"
         raw_url= "https://deepchemdata.s3-us-west-1.amazonaws.com/datasets/Lipophilicity.csv"
         data_column_name="smiles"
         super().__init__(root=root, filename = filename, raw_url=raw_url, data_column_name=data_column_name,
-                         target_names= FreeSolvDataset.target_names,add_hydrogen=add_hydrogen, seed=seed, transform=transform, pre_transform=pre_transform, pre_filter=pre_filter)
+                         target_names= LipoDataset.target_names,add_hydrogen=add_hydrogen, seed=seed, transform=transform, pre_transform=pre_transform, pre_filter=pre_filter)
         
 
 class BBBPDataset(InMemoryUcrDataset):
@@ -400,7 +400,7 @@ class BBBPDataset(InMemoryUcrDataset):
 
 
 
-dataset_dict= {"qm9": QM9Dataset, "bace":BaceDataset, "bbbp": BBBPDataset, "freesolv":FreeSolvDataset, "muv":MUVDataset, "mp_is_metal":MatBenchMpIsMetal, "mp_gap":MatBenchMpGap,"mp_e_form":MatBenchMpEForm,
+dataset_dict= {"qm9": QM9Dataset, "bace":BaceDataset, "bbbp": BBBPDataset, "freesolv":FreeSolvDataset, "lipo":LipoDataset, "muv":MUVDataset, "mp_is_metal":MatBenchMpIsMetal, "mp_gap":MatBenchMpGap,"mp_e_form":MatBenchMpEForm,
                "phonons":MatBenchPhonons, "dieletric":MatBenchDieletric, "log_gvrh":MatBenchLogGvrh, "perovskites":MatBenchPerovskites}
 
 

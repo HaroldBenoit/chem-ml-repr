@@ -64,7 +64,7 @@ class LightningClassicGNN(pl.LightningModule):
                 (BatchNorm(in_channels=self.hidden), "x0 -> x0a"),
                 (PReLU(), "x0a -> x0b"),
                 (Dropout(p = self.dropout_p), "x0b -> x0c"),]
-        UcrDataset
+        
         #other message passing layers
         for i in range(num_message_passing_layers-1):
             layers.append((GeneralConv(self.hidden, self.hidden), f"x{i}c, edge_index -> x{i+1}"))
