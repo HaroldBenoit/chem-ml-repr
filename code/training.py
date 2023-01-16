@@ -239,8 +239,8 @@ def main():
             metric_name = "auc"
             metric_value = curr_res['auc/valid'].max()
         else:
-            metric_name = "mae"
-            metric_value = curr_res["loss/valid"].min()
+            metric_name = "rmse"
+            metric_value = curr_res["rmse/valid"].min()
             
         # df schema
         # "dataset":[],
@@ -256,7 +256,7 @@ def main():
         new_row = pd.DataFrame([[args.dataset, args.target, args.seed, time, num_epochs, args.train_frac, args.valid_frac, metric_name, metric_value]],columns=columns)
         new_row = new_row.set_index('dataset')
         
-        global_res_path = "../experiments_results/global_results.csv" if not(args.boolean) else "../experiments_results/global_results_boolean.csv"
+        global_res_path = "../experiments_results/global_results_rmse.csv" if not(args.boolean) else "../experiments_results/global_results_boolean.csv"
         if os.path.exists(global_res_path):
             global_res = pd.read_csv(global_res_path, index_col='dataset')
         else:

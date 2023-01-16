@@ -64,7 +64,7 @@ class LightningClassicGNN(pl.LightningModule):
                 (BatchNorm(in_channels=self.hidden), "x0 -> x0a"),
                 (PReLU(), "x0a -> x0b"),
                 (Dropout(p = self.dropout_p), "x0b -> x0c"),]
-        
+        UcrDataset
         #other message passing layers
         for i in range(num_message_passing_layers-1):
             layers.append((GeneralConv(self.hidden, self.hidden), f"x{i}c, edge_index -> x{i+1}"))
@@ -137,6 +137,8 @@ class LightningClassicGNN(pl.LightningModule):
                 self.log(f"mean_pred/{suffix}",x_out.mean(), sync_dist=not(is_train))
                 self.log(f"mean_truth/{suffix}", batch.y.mean(), sync_dist=not(is_train))
                 loss= F.l1_loss(x_out,batch.y)
+                rmse = torch.sqrt(F.mse_loss(x_out,batch.y))
+                self.log(f"rmse/{suffix}",rmse, batch_size=batch_size,on_epoch=True,sync_dist=not(is_train))
                 
             self.log(f"loss/{suffix}", loss, batch_size=batch_size, on_epoch=True, sync_dist=not(is_train))
             

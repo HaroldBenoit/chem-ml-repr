@@ -205,7 +205,7 @@ class MatBenchMpEForm(UcrDataset):
                      add_hydrogen=add_hydrogen, seed=seed, transform=transform, pre_transform=pre_transform, pre_filter=pre_filter)
         
         
-class MatBenchPhonons(UcrDataset):
+class MatBenchPhonons(InMemoryUcrDataset):
     """Load matchbench_phonons dataset
         The raw data contains a compressed json file containing informations on structure and target
     """
@@ -224,7 +224,7 @@ class MatBenchPhonons(UcrDataset):
         super().__init__(root=root, filename = filename, raw_url=raw_url, data_column_name=data_column_name, target_names= MatBenchPhonons.target_names,
                      add_hydrogen=add_hydrogen, seed=seed, transform=transform, pre_transform=pre_transform, pre_filter=pre_filter)
 
-class MatBenchDieletric(UcrDataset):
+class MatBenchDieletric(InMemoryUcrDataset):
     """Load matchbench_dieletric dataset
         The raw data contains a compressed json file containing informations on structure and target
     """
@@ -244,7 +244,7 @@ class MatBenchDieletric(UcrDataset):
                      add_hydrogen=add_hydrogen, seed=seed, transform=transform, pre_transform=pre_transform, pre_filter=pre_filter)
         
         
-class MatBenchLogGvrh(UcrDataset):
+class MatBenchLogGvrh(InMemoryUcrDataset):
     """Load matchbench_dieletric dataset
         The raw data contains a compressed json file containing informations on structure and target
     """
@@ -265,7 +265,7 @@ class MatBenchLogGvrh(UcrDataset):
 
 
 
-class MatBenchPerovskites(UcrDataset):
+class MatBenchPerovskites(InMemoryUcrDataset):
     """Load matchbench_dieletric dataset
         The raw data contains a compressed json file containing informations on structure and target
     """
@@ -338,6 +338,32 @@ class FreeSolvDataset(InMemoryUcrDataset):
                 
         filename="freesolv.csv.gz"
         raw_url= 'https://deepchemdata.s3-us-west-1.amazonaws.com/datasets/freesolv.csv.gz'
+        data_column_name="smiles"
+        super().__init__(root=root, filename = filename, raw_url=raw_url, data_column_name=data_column_name,
+                         target_names= FreeSolvDataset.target_names,add_hydrogen=add_hydrogen, seed=seed, transform=transform, pre_transform=pre_transform, pre_filter=pre_filter)
+        
+        
+class LipoDataset(InMemoryUcrDataset):
+    """Load Lipophilicity dataset
+    Lipophilicity is an important feature of drug molecules that affects both
+    membrane permeability and solubility. The lipophilicity dataset, curated
+    from ChEMBL database, provides experimental results of octanol/water
+    distribution coefficient (logD at pH 7.4) of 4200 compounds.
+    Scaffold splitting is recommended for this dataset.
+    The raw data csv file contains columns below:
+    - "smiles" - SMILES representation of the molecular structure
+    - "exp" - Measured octanol/water distribution coefficient (logD) of the
+    compound, used as label
+    """
+
+    target_names = ['exp']
+    is_classification={'y':False}
+
+    
+    def __init__(self, root: str, add_hydrogen=False, seed=GLOBAL_SEED, transform: Optional[Callable] = None, pre_transform: Optional[Callable] = None, pre_filter: Optional[Callable] = None):
+                
+        filename="Lipophilicity.csv""
+        raw_url= "https://deepchemdata.s3-us-west-1.amazonaws.com/datasets/Lipophilicity.csv"
         data_column_name="smiles"
         super().__init__(root=root, filename = filename, raw_url=raw_url, data_column_name=data_column_name,
                          target_names= FreeSolvDataset.target_names,add_hydrogen=add_hydrogen, seed=seed, transform=transform, pre_transform=pre_transform, pre_filter=pre_filter)
