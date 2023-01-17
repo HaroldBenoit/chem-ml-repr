@@ -4,7 +4,7 @@
 
 #Hidign results folder
 results/*
-
+bad_code/*
 # Hiding data folders
 data/*
 old_data/*
