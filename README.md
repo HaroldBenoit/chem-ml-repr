@@ -1,5 +1,7 @@
 # Universal Representation of Chemical Entities for Machine Learning
 
+The preprint can be read [here](ucr_preprint.pdf)
+
 ## Abstract
 
 Molecular and material machine learning have seen tremendous progress in the past few years, especially thanks to the usage of GNNs. Data representation of chemical
