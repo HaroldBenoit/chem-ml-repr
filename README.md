@@ -1,6 +1,6 @@
 # Universal Representation of Chemical Entities for Machine Learning
 
-The preprint can be read [here](ucr_preprint.pdf)
+The preprint can be read [here](ucr_preprint.pdf).
 
 ## Abstract
 
